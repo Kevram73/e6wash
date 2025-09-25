@@ -1,0 +1,823 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== UTILISATEURS ET AUTHENTIFICATION =====
+model User {
+  id            String    @id @default(cuid())
+  fullname      String?
+  name          String?
+  email         String    @unique
+  password      String
+  role          UserRole
+  tenantId      String?
+  agencyId      String?
+  phoneNumber   String?
+  phone         String?
+  address       String?
+  picture       String?
+  avatar        String?
+  status        Boolean   @default(true)
+  isActive      Boolean   @default(true)
+  emailVerified DateTime?
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // Relations
+  tenant        Tenant?   @relation(fields: [tenantId], references: [id])
+  agency        Agency?   @relation("UserAgency", fields: [agencyId], references: [id])
+  
+  // Relations many-to-many avec les agences
+  agencies      AgencyUser[]
+  
+  // Commandes créées
+  createdOrders Order[]   @relation("OrderCreator")
+  updatedOrders Order[]   @relation("OrderUpdater")
+  
+  // Paiements
+  payments      Payment[]
+  
+  // Employés
+  employee      Employee?
+  
+  // Gestion des agences
+  managedAgencies Agency[] @relation("AgencyManager")
+  
+  // Conversations et messages
+  createdConversations Conversation[] @relation("ConversationCreator")
+  conversationParticipants ConversationParticipant[]
+  sentMessages Message[] @relation("MessageSender")
+  
+  // Tâches
+  assignedTasks Task[] @relation("TaskAssignee")
+  completedTasks Task[] @relation("TaskCompleter")
+  createdTasks Task[] @relation("TaskCreator")
+  
+  // Commentaires
+  comments Comment[] @relation("CommentAuthor")
+  
+  // Notifications
+  notifications InternalNotification[] @relation("NotificationUser")
+  createdNotifications InternalNotification[] @relation("NotificationCreator")
+
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  OWNER
+  EMPLOYEE
+  CAISSIER
+  MANAGER
+  COLLECTOR
+  CLIENT
+}
+
+// ===== TENANTS (PRESSINGS) =====
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  subdomain   String?  @unique
+  domain      String?  @unique
+  logo        String?
+  settings    Json?    // Paramètres du tenant
+  status      TenantStatus @default(ACTIVE)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  // Relations
+  users       User[]
+  agencies    Agency[]
+  customers   Customer[]
+  orders      Order[]
+  services    Service[]
+  employees   Employee[]
+  inventory   Inventory[]
+  suppliers   Supplier[]
+  subscriptions TenantSubscription[]
+  conversations Conversation[]
+  tasks       Task[]
+  notifications InternalNotification[]
+  loyaltySettings LoyaltySettings[]
+
+  @@map("tenants")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+// ===== AGENCES =====
+model Agency {
+  id            String   @id @default(cuid())
+  tenantId      String
+  name          String
+  address       String
+  phone         String
+  email         String
+  countryId     String?
+  city          String?
+  isActive      Boolean  @default(true)
+  code          String   @unique // Code unique de l'agence (ex: AG001)
+  managerId     String?  // ID du manager de l'agence
+  settings      Json?    // Paramètres spécifiques à l'agence
+  openingHours  Json?    // Horaires d'ouverture
+  capacity      Int?     // Capacité de traitement
+  isMainAgency  Boolean  @default(false) // Agence principale du tenant
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  deletedAt     DateTime?
+
+  // Relations
+  tenant        Tenant   @relation(fields: [tenantId], references: [id])
+  country       Country? @relation(fields: [countryId], references: [id])
+  manager       User?    @relation("AgencyManager", fields: [managerId], references: [id])
+  
+  // Relations many-to-many avec les utilisateurs
+  users         AgencyUser[]
+  
+  // Relations directes avec User
+  userAgencies  User[]   @relation("UserAgency")
+  
+  // Autres relations
+  customers     Customer[]
+  orders        Order[]
+  inventory     Inventory[]
+  services      Service[]
+  payments      Payment[]
+  employees     Employee[]
+
+  @@map("agencies")
+}
+
+// Table pivot pour les relations User-Agency
+model AgencyUser {
+  id        String   @id @default(cuid())
+  userId    String
+  agencyId  String
+  role      String?
+  isActive  Boolean  @default(true)
+  assignedAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency    Agency   @relation(fields: [agencyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, agencyId])
+  @@map("agency_users")
+}
+
+// ===== CLIENTS =====
+model Customer {
+  id          String   @id @default(cuid())
+  tenantId    String
+  agencyId    String
+  fullname    String
+  email       String?
+  phone       String
+  address     String?
+  city        String?
+  countryId   String?
+  isActive    Boolean  @default(true)
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  agency      Agency   @relation(fields: [agencyId], references: [id])
+  country     Country? @relation(fields: [countryId], references: [id])
+  orders      Order[]
+
+  @@map("customers")
+}
+
+// ===== SERVICES =====
+model Service {
+  id           String        @id @default(cuid())
+  tenantId     String
+  agencyId     String?
+  name         String
+  type         ServiceType
+  price        Decimal
+  description  String?
+  estimatedTime String?      // en heures
+  isActive     Boolean       @default(true)
+  category     ServiceCategory
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  // Relations
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  agency       Agency?       @relation(fields: [agencyId], references: [id])
+  orderItems   OrderItem[]
+
+  @@map("services")
+}
+
+enum ServiceType {
+  DETAIL
+  KILO
+}
+
+enum ServiceCategory {
+  WASHING
+  IRONING
+  DRY_CLEANING
+  REPAIR
+  OTHER
+}
+
+// ===== COMMANDES =====
+model Order {
+  id              String        @id @default(cuid())
+  tenantId        String
+  agencyId        String
+  customerId      String
+  orderNumber     String        @unique
+  totalAmount     Decimal
+  status          OrderStatus   @default(NEW)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   PaymentMethod?
+  notes           String?
+  pickupDate      DateTime?
+  deliveryDate    DateTime?
+  discountAmount  Decimal       @default(0)
+  taxAmount       Decimal       @default(0)
+  createdById     String?
+  updatedById     String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  // Relations
+  tenant          Tenant        @relation(fields: [tenantId], references: [id])
+  agency          Agency        @relation(fields: [agencyId], references: [id])
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  createdBy       User?         @relation("OrderCreator", fields: [createdById], references: [id])
+  updatedBy       User?         @relation("OrderUpdater", fields: [updatedById], references: [id])
+  items           OrderItem[]
+  payments        Payment[]
+
+  @@map("orders")
+}
+
+enum OrderStatus {
+  NEW
+  PROCESSING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  PARTIAL
+  REFUNDED
+}
+
+enum PaymentMethod {
+  CASH
+  MOBILE_MONEY
+  CARD
+  BANK_TRANSFER
+  WALLET
+}
+
+// ===== ARTICLES DE COMMANDE =====
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  serviceId   String
+  name        String
+  quantity    Int      @default(1)
+  unitPrice   Decimal
+  totalPrice  Decimal
+  category    String?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  service     Service  @relation(fields: [serviceId], references: [id])
+
+  @@map("order_items")
+}
+
+// ===== PAIEMENTS =====
+model Payment {
+  id            String        @id @default(cuid())
+  orderId       String
+  agencyId      String
+  userId        String?       // Utilisateur qui a enregistré le paiement
+  amount        Decimal
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  transactionId String?
+  notes         String?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  order         Order         @relation(fields: [orderId], references: [id])
+  agency        Agency        @relation(fields: [agencyId], references: [id])
+  user          User?         @relation(fields: [userId], references: [id])
+
+  @@map("payments")
+}
+
+// ===== EMPLOYÉS =====
+model Employee {
+  id          String   @id @default(cuid())
+  tenantId    String
+  agencyId    String
+  userId      String   @unique
+  employeeId  String   @unique // Numéro d'employé
+  position    String?
+  salary      Decimal?
+  hireDate    DateTime?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  agency      Agency   @relation(fields: [agencyId], references: [id])
+  user        User     @relation(fields: [userId], references: [id])
+  attendance  Attendance[]
+
+  @@map("employees")
+}
+
+// ===== PRÉSENCE =====
+model Attendance {
+  id          String   @id @default(cuid())
+  employeeId  String
+  date        DateTime
+  checkIn     DateTime?
+  checkOut    DateTime?
+  hoursWorked Decimal?
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  employee    Employee @relation(fields: [employeeId], references: [id])
+
+  @@unique([employeeId, date])
+  @@map("attendance")
+}
+
+// ===== INVENTAIRE =====
+model Inventory {
+  id            String         @id @default(cuid())
+  tenantId      String
+  agencyId      String
+  name          String
+  category      InventoryCategory
+  currentStock  Int            @default(0)
+  minStock      Int            @default(0)
+  unit          String
+  unitPrice     Decimal
+  supplier      String?
+  isLowStock    Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  // Relations
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  agency        Agency         @relation(fields: [agencyId], references: [id])
+  transactions  InventoryTransaction[]
+
+  @@map("inventory")
+}
+
+enum InventoryCategory {
+  DETERGENT
+  BAG
+  HANGER
+  EQUIPMENT
+  OTHER
+}
+
+// ===== TRANSACTIONS D'INVENTAIRE =====
+model InventoryTransaction {
+  id          String   @id @default(cuid())
+  inventoryId String
+  type        TransactionType
+  quantity    Int
+  reason      String?
+  createdAt   DateTime @default(now())
+
+  // Relations
+  inventory   Inventory @relation(fields: [inventoryId], references: [id])
+
+  @@map("inventory_transactions")
+}
+
+enum TransactionType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+// ===== FOURNISSEURS =====
+model Supplier {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  contact     String?
+  phone       String?
+  email       String?
+  address     String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  orders      SupplierOrder[]
+
+  @@map("suppliers")
+}
+
+// ===== COMMANDES FOURNISSEUR =====
+model SupplierOrder {
+  id          String   @id @default(cuid())
+  supplierId  String
+  orderNumber String   @unique
+  totalAmount Decimal
+  status      String   @default("pending")
+  orderDate   DateTime @default(now())
+  deliveryDate DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  supplier    Supplier @relation(fields: [supplierId], references: [id])
+  items       SupplierOrderItem[]
+
+  @@map("supplier_orders")
+}
+
+// ===== ARTICLES COMMANDE FOURNISSEUR =====
+model SupplierOrderItem {
+  id              String        @id @default(cuid())
+  supplierOrderId String
+  name            String
+  quantity        Int
+  unitPrice       Decimal
+  totalPrice      Decimal
+  createdAt       DateTime      @default(now())
+
+  // Relations
+  supplierOrder   SupplierOrder @relation(fields: [supplierOrderId], references: [id], onDelete: Cascade)
+
+  @@map("supplier_order_items")
+}
+
+// ===== REVENUS =====
+model Revenue {
+  id          String   @id @default(cuid())
+  tenantId    String
+  amount      Decimal
+  source      String
+  description String?
+  date        DateTime
+  createdAt   DateTime @default(now())
+
+  @@map("revenues")
+}
+
+// ===== DÉPENSES =====
+model Expense {
+  id          String   @id @default(cuid())
+  tenantId    String
+  amount      Decimal
+  category    String
+  description String?
+  date        DateTime
+  createdAt   DateTime @default(now())
+
+  @@map("expenses")
+}
+
+// ===== ABONNEMENTS SAAS =====
+model Subscription {
+  id                String   @id @default(cuid())
+  name              String   @unique
+  price             Decimal
+  maxAgencies       Int
+  maxUsers          Int
+  maxOrdersPerMonth Int
+  features          Json?    // array de features
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  tenantSubscriptions TenantSubscription[]
+
+  @@map("subscriptions")
+}
+
+// ===== ABONNEMENTS TENANT =====
+model TenantSubscription {
+  id             String           @id @default(cuid())
+  tenantId       String
+  subscriptionId String
+  status         SubscriptionStatus @default(ACTIVE)
+  startDate      DateTime
+  endDate        DateTime
+  autoRenew      Boolean          @default(true)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  // Relations
+  tenant         Tenant           @relation(fields: [tenantId], references: [id])
+  subscription   Subscription     @relation(fields: [subscriptionId], references: [id])
+  payments       SubscriptionPayment[]
+
+  @@map("tenant_subscriptions")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  EXPIRED
+}
+
+// ===== PAIEMENTS D'ABONNEMENT =====
+model SubscriptionPayment {
+  id                String   @id @default(cuid())
+  tenantSubscriptionId String
+  amount            Decimal
+  status            String   @default("pending")
+  paidAt            DateTime?
+  createdAt         DateTime @default(now())
+
+  // Relations
+  tenantSubscription TenantSubscription @relation(fields: [tenantSubscriptionId], references: [id])
+
+  @@map("subscription_payments")
+}
+
+// ===== PAYS =====
+model Country {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String   @unique
+  createdAt DateTime @default(now())
+
+  // Relations
+  agencies  Agency[]
+  customers Customer[]
+
+  @@map("countries")
+}
+
+// ===== PROMOTIONS =====
+model Promo {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  description String?
+  type        String   // percentage, fixed_amount
+  value       Decimal
+  startDate   DateTime
+  endDate     DateTime
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("promos")
+}
+
+// ===== GROUPES DE FIDÉLITÉ =====
+model LoyalGroup {
+  id          String   @id @default(cuid())
+  tenantId    String
+  name        String
+  minOrders   Int
+  discount    Decimal
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("loyal_groups")
+}
+
+// ===== TRANSACTIONS DE FIDÉLITÉ =====
+model LoyaltyTransaction {
+  id          String   @id @default(cuid())
+  customerId  String
+  points      Int
+  type        String   // earned, redeemed
+  description String?
+  createdAt   DateTime @default(now())
+
+  @@map("loyalty_transactions")
+}
+
+// ===== PARAMÈTRES DE FIDÉLITÉ =====
+model LoyaltySettings {
+  id                String   @id @default(cuid())
+  tenantId          String
+  isActive          Boolean  @default(true)
+  pointsPerCurrency Decimal  @default(1.0)
+  currencyPerPoint  Decimal  @default(100.0)
+  minimumPointsForRedeem Int @default(100)
+  expiryMonths      Int      @default(12)
+  welcomeBonus      Int      @default(0)
+  birthdayBonus     Int      @default(0)
+  tiers             Json?    // Array of tier configurations
+  rules             Json?    // Array of loyalty rules
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@map("loyalty_settings")
+}
+
+// ===== CONVERSATIONS =====
+model Conversation {
+  id        String   @id @default(cuid())
+  tenantId  String
+  title     String
+  type      ConversationType @default(DIRECT)
+  createdById String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  createdBy User     @relation("ConversationCreator", fields: [createdById], references: [id])
+  messages  Message[]
+  participants ConversationParticipant[]
+
+  @@map("conversations")
+}
+
+enum ConversationType {
+  DIRECT
+  GROUP
+}
+
+// ===== PARTICIPANTS DE CONVERSATION =====
+model ConversationParticipant {
+  id             String   @id @default(cuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime @default(now())
+  leftAt         DateTime?
+  isAdmin        Boolean  @default(false)
+  lastReadAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@map("conversation_participants")
+}
+
+// ===== MESSAGES =====
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  messageType    MessageType @default(TEXT)
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id])
+
+  @@map("messages")
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+}
+
+// ===== TÂCHES =====
+model Task {
+  id          String   @id @default(cuid())
+  tenantId    String
+  title       String
+  description String?
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus @default(PENDING)
+  dueDate     DateTime?
+  assignedToId String?
+  completedAt DateTime?
+  completedById String?
+  createdById String
+  relatedType String?  // Order, Customer, etc.
+  relatedId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  assignedTo  User?    @relation("TaskAssignee", fields: [assignedToId], references: [id])
+  completedBy User?    @relation("TaskCompleter", fields: [completedById], references: [id])
+  createdBy   User     @relation("TaskCreator", fields: [createdById], references: [id])
+
+  @@map("tasks")
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+// ===== COMMENTAIRES =====
+model Comment {
+  id            String   @id @default(cuid())
+  content       String
+  commentableType String
+  commentableId String
+  authorId      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  author        User     @relation("CommentAuthor", fields: [authorId], references: [id])
+
+  @@map("comments")
+}
+
+// ===== NOTIFICATIONS INTERNES =====
+model InternalNotification {
+  id          String   @id @default(cuid())
+  tenantId    String
+  title       String
+  content     String
+  icon        String?
+  level       NotificationLevel @default(INFO)
+  link        String?
+  readAt      DateTime?
+  userId      String
+  createdById String
+  relatedType String?
+  relatedId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  user        User     @relation("NotificationUser", fields: [userId], references: [id])
+  createdBy   User     @relation("NotificationCreator", fields: [createdById], references: [id])
+
+  @@map("internal_notifications")
+}
+
+enum NotificationLevel {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
