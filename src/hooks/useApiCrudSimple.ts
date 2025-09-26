@@ -86,43 +86,47 @@ export function useApiCrudSimple<T extends { id: string }>({
         else if (response.data.promotions && Array.isArray(response.data.promotions)) {
           itemsData = response.data.promotions;
         }
-        // Format 10: response.data.billing (format billing API)
+        // Format 10: response.data.collectors (format collectors API)
+        else if (response.data.collectors && Array.isArray(response.data.collectors)) {
+          itemsData = response.data.collectors;
+        }
+        // Format 11: response.data.billing (format billing API)
         else if (response.data.billing && Array.isArray(response.data.billing)) {
           itemsData = response.data.billing;
         }
-        // Format 11: response.data.loyalty (format loyalty API)
+        // Format 12: response.data.loyalty (format loyalty API)
         else if (response.data.loyalty && Array.isArray(response.data.loyalty)) {
           itemsData = response.data.loyalty;
         }
-        // Format 12: response.data.conversations (format messages API)
+        // Format 13: response.data.conversations (format messages API)
         else if (response.data.conversations && Array.isArray(response.data.conversations)) {
           itemsData = response.data.conversations;
         }
-        // Format 13: response.data.inventory (format inventory API)
+        // Format 14: response.data.inventory (format inventory API)
         else if (response.data.inventory && Array.isArray(response.data.inventory)) {
           itemsData = response.data.inventory;
         }
-        // Format 14: response.data.suppliers (format suppliers API)
+        // Format 15: response.data.suppliers (format suppliers API)
         else if (response.data.suppliers && Array.isArray(response.data.suppliers)) {
           itemsData = response.data.suppliers;
         }
-        // Format 15: response.data.countries (format countries API)
+        // Format 16: response.data.countries (format countries API)
         else if (response.data.countries && Array.isArray(response.data.countries)) {
           itemsData = response.data.countries;
         }
-        // Format 16: response.data.data (format standard)
+        // Format 17: response.data.data (format standard)
         else if (response.data.data && Array.isArray(response.data.data)) {
           itemsData = response.data.data;
         }
-        // Format 17: response.data.items (autre format courant)
+        // Format 18: response.data.items (autre format courant)
         else if (response.data.items && Array.isArray(response.data.items)) {
           itemsData = response.data.items;
         }
-        // Format 18: response.data est directement un tableau
+        // Format 19: response.data est directement un tableau
         else if (Array.isArray(response.data)) {
           itemsData = response.data;
         }
-        // Format 19: response est directement un tableau
+        // Format 20: response est directement un tableau
         else if (Array.isArray(response)) {
           itemsData = response;
         }

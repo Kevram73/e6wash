@@ -100,7 +100,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       case 'COLLECTOR':
         return [
           ...baseItems,
-          { name: 'Mes missions', href: '/my-missions', icon: Package, roles: ['COLLECTOR'] },
+          { name: 'Mes missions', href: '/missions', icon: Package, roles: ['COLLECTOR'] },
           { name: 'QR Scanner', href: '/qr-scanner', icon: QrCode, roles: ['COLLECTOR'] },
           { name: 'Messages', href: '/messages', icon: MessageSquare, roles: ['COLLECTOR'] },
           { name: 'Notifications', href: '/notifications', icon: Bell, roles: ['COLLECTOR'] },

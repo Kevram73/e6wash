@@ -25,8 +25,62 @@ const ReportsPage: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('month');
   const [selectedAgency, setSelectedAgency] = useState('all');
 
-  
+  const {
+    items: reportsData,
+    selectedItem,
+    isCreateModalOpen,
+    isEditModalOpen,
+    isDeleteModalOpen,
+    isLoading,
+    error,
+    handleCreate,
+    handleEdit,
+    handleDelete,
+    handleView,
+    openCreateModal,
+    openEditModal,
+    openDeleteModal,
+    closeModals,
+    setItems
+  } = useApiCrudSimple({ service: reportsService, entityName: 'report' });
 
+  // Mock data for reports (since the API structure is complex)
+  const revenueData = [
+    { month: 'Jan', revenue: 1200000 },
+    { month: 'Fév', revenue: 1500000 },
+    { month: 'Mar', revenue: 1800000 },
+    { month: 'Avr', revenue: 1600000 },
+    { month: 'Mai', revenue: 2000000 },
+    { month: 'Juin', revenue: 2200000 }
+  ];
+
+  const serviceStats = [
+    { service: 'Nettoyage à sec', orders: 45, revenue: 450000 },
+    { service: 'Repassage', orders: 32, revenue: 320000 },
+    { service: 'Blanchisserie', orders: 28, revenue: 280000 },
+    { service: 'Retouches', orders: 15, revenue: 150000 }
+  ];
+
+  const summaryStats = {
+    totalOrders: 120,
+    totalRevenue: 1200000,
+    totalCustomers: 89,
+    totalServices: 4
+  };
+
+  const agencyStats = [
+    { name: 'Agence Centre', orders: 45, revenue: 450000, growth: 12 },
+    { name: 'Agence Nord', orders: 32, revenue: 320000, growth: 8 },
+    { name: 'Agence Sud', orders: 28, revenue: 280000, growth: 5 },
+    { name: 'Agence Est', orders: 15, revenue: 150000, growth: 2 }
+  ];
+
+  const collectorStats = [
+    { name: 'Jean Martin', missions: 45, successRate: 98, earnings: 45000 },
+    { name: 'Marie Dubois', missions: 38, successRate: 96, earnings: 38000 },
+    { name: 'Pierre Durand', missions: 32, successRate: 94, earnings: 32000 },
+    { name: 'Sophie Moreau', missions: 28, successRate: 92, earnings: 28000 }
+  ];
   
 
   

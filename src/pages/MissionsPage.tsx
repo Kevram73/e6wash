@@ -22,11 +22,105 @@ import {
   QrCode
 } from 'lucide-react';
 
+interface Mission {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  customerPhone: string;
+  address: string;
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+  type: 'PICKUP' | 'DELIVERY' | 'BOTH';
+  scheduledTime: string | Date;
+  estimatedDuration: number;
+  totalWeight: number;
+  totalAmount: number;
+  items: Array<{
+    id: string;
+    name: string;
+    quantity: number;
+    weight: number;
+  }>;
+  notes?: string;
+  cancellationReason?: string;
+  qrCode: string;
+  completedAt?: string | Date;
+  createdAt: string | Date;
+}
+
 const MissionsPage: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
-  
+  // Load tasks data using the hook
+  const { items: tasks } = useApiCrudSimple({ service: tasksService, entityName: 'task' });
+
+  // Mock missions data for now (since the page expects a different structure than tasks)
+  const missions: Mission[] = [
+    {
+      id: '1',
+      orderNumber: 'CMD-001',
+      customerName: 'Jean Dupont',
+      customerPhone: '+237 123 456 789',
+      address: '123 Rue de la Paix, Douala',
+      status: 'PENDING',
+      priority: 'HIGH',
+      type: 'PICKUP',
+      scheduledTime: new Date(),
+      estimatedDuration: 30,
+      totalWeight: 5.5,
+      totalAmount: 15000,
+      items: [
+        { id: '1', name: 'Chemises', quantity: 3, weight: 1.5 },
+        { id: '2', name: 'Pantalons', quantity: 2, weight: 2.0 }
+      ],
+      notes: 'Porte principale, sonner 2 fois',
+      qrCode: 'QR123456',
+      createdAt: new Date()
+    },
+    {
+      id: '2',
+      orderNumber: 'CMD-002',
+      customerName: 'Marie Martin',
+      customerPhone: '+237 987 654 321',
+      address: '456 Avenue des Martyrs, Yaoundé',
+      status: 'IN_PROGRESS',
+      priority: 'MEDIUM',
+      type: 'DELIVERY',
+      scheduledTime: new Date(),
+      estimatedDuration: 45,
+      totalWeight: 8.2,
+      totalAmount: 25000,
+      items: [
+        { id: '3', name: 'Robes', quantity: 2, weight: 3.0 },
+        { id: '4', name: 'Costumes', quantity: 1, weight: 2.5 }
+      ],
+      qrCode: 'QR789012',
+      createdAt: new Date()
+    },
+    {
+      id: '3',
+      orderNumber: 'CMD-003',
+      customerName: 'Pierre Durand',
+      customerPhone: '+237 555 123 456',
+      address: '789 Boulevard du 20 Mai, Garoua',
+      status: 'COMPLETED',
+      priority: 'LOW',
+      type: 'BOTH',
+      scheduledTime: new Date(),
+      estimatedDuration: 60,
+      totalWeight: 12.0,
+      totalAmount: 35000,
+      items: [
+        { id: '5', name: 'Manteaux', quantity: 2, weight: 4.0 },
+        { id: '6', name: 'Vestes', quantity: 3, weight: 3.5 }
+      ],
+      notes: 'Livraison effectuée avec succès',
+      qrCode: 'QR345678',
+      completedAt: new Date(),
+      createdAt: new Date()
+    }
+  ];
 
   const filteredMissions = missions.filter(mission => {
     const matchesSearch = mission.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -127,14 +221,22 @@ const MissionsPage: React.FC = () => {
     }).format(amount);
   };
 
-  const formatDateTime = (date: Date) => {
+  const formatDateTime = (date: string | Date) => {
+    if (!date) return 'N/A';
+    
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    if (isNaN(dateObj.getTime())) {
+      return 'Date invalide';
+    }
+    
     return new Intl.DateTimeFormat('fr-FR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    }).format(date);
+    }).format(dateObj);
   };
 
   const pendingMissions = missions.filter(m => m.status === 'PENDING').length;

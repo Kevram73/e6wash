@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/db';
 
 export async function POST(
   request: NextRequest,
@@ -26,7 +24,7 @@ export async function POST(
       },
     });
 
-    return NextResponse.json({ data: notification });
+    return NextResponse.json({ success: true, data: notification });
   } catch (error) {
     console.error('Error marking notification as read:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

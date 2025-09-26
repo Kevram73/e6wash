@@ -3,6 +3,30 @@
 import React, { useState } from 'react';
 import { useApiCrudSimple } from '@/hooks/useApiCrudSimple';
 import { billingService } from '@/lib/api/services/billing';
+
+interface Payment {
+  id: string;
+  orderId: string;
+  agencyId: string;
+  userId?: string;
+  amount: number;
+  method: string;
+  status: 'PENDING' | 'PAID' | 'PARTIAL' | 'REFUNDED';
+  transactionId?: string;
+  notes?: string;
+  paidAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  order?: {
+    id: string;
+    tenant?: {
+      name: string;
+    };
+  };
+  agency?: {
+    name: string;
+  };
+}
 import UpworkCard from '@/components/ui/UpworkCard';
 // Badge component replaced with custom spans
 import UpworkButton from '@/components/ui/UpworkButton';
@@ -35,14 +59,15 @@ const FinancePage: React.FC = () => {
     items: payments,
     isLoading,
     error
-  } = useApiCrudSimple({ service: billingService, entityName: 'billing' });
+  } = useApiCrudSimple<Payment>({ service: billingService, entityName: 'billing' });
 
   // Variables calculées pour remplacer les données mock
   const expenses: any[] = []; // TODO: Remplacer par un appel API pour les dépenses
   const filteredPayments = payments.filter(payment => {
-    const matchesSearch = payment.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         payment.reference.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (payment.order?.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (payment.order?.tenant?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (payment.transactionId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (payment.notes || '').toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesType = typeFilter === 'all' || payment.method === typeFilter;
     
@@ -51,12 +76,12 @@ const FinancePage: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'COMPLETED':
+      case 'PAID':
         return 'bg-green-100 text-green-800';
       case 'PENDING':
         return 'bg-yellow-100 text-yellow-800';
-      case 'FAILED':
-        return 'bg-red-100 text-red-800';
+      case 'PARTIAL':
+        return 'bg-blue-100 text-blue-800';
       case 'REFUNDED':
         return 'bg-[#f5f5f5] text-[#2c2c2c]';
       default:
@@ -66,12 +91,12 @@ const FinancePage: React.FC = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'COMPLETED':
-        return 'Terminé';
+      case 'PAID':
+        return 'Payé';
       case 'PENDING':
         return 'En attente';
-      case 'FAILED':
-        return 'Échoué';
+      case 'PARTIAL':
+        return 'Partiel';
       case 'REFUNDED':
         return 'Remboursé';
       default:
@@ -131,8 +156,8 @@ const FinancePage: React.FC = () => {
   };
 
   const totalRevenue = payments
-    .filter(p => p.status === 'COMPLETED')
-    .reduce((sum, p) => sum + p.netAmount, 0);
+    .filter(p => p.status === 'PAID')
+    .reduce((sum, p) => sum + Number(p.amount), 0);
   
   const totalExpenses = expenses
     .filter(e => e.status === 'PAID')
@@ -144,11 +169,11 @@ const FinancePage: React.FC = () => {
   const pendingExpenses = expenses.filter(e => e.status === 'PENDING').length;
 
   const paymentMethods = [
-    { method: 'CASH', count: payments.filter(p => p.method === 'CASH').length, amount: payments.filter(p => p.method === 'CASH').reduce((sum, p) => sum + p.netAmount, 0) },
-    { method: 'MOBILE_MONEY', count: payments.filter(p => p.method === 'MOBILE_MONEY').length, amount: payments.filter(p => p.method === 'MOBILE_MONEY').reduce((sum, p) => sum + p.netAmount, 0) },
-    { method: 'CARD', count: payments.filter(p => p.method === 'CARD').length, amount: payments.filter(p => p.method === 'CARD').reduce((sum, p) => sum + p.netAmount, 0) },
-    { method: 'BANK_TRANSFER', count: payments.filter(p => p.method === 'BANK_TRANSFER').length, amount: payments.filter(p => p.method === 'BANK_TRANSFER').reduce((sum, p) => sum + p.netAmount, 0) },
-    { method: 'WALLET', count: payments.filter(p => p.method === 'WALLET').length, amount: payments.filter(p => p.method === 'WALLET').reduce((sum, p) => sum + p.netAmount, 0) },
+    { method: 'CASH', count: payments.filter(p => p.method === 'CASH').length, amount: payments.filter(p => p.method === 'CASH').reduce((sum, p) => sum + Number(p.amount), 0) },
+    { method: 'MOBILE_MONEY', count: payments.filter(p => p.method === 'MOBILE_MONEY').length, amount: payments.filter(p => p.method === 'MOBILE_MONEY').reduce((sum, p) => sum + Number(p.amount), 0) },
+    { method: 'CARD', count: payments.filter(p => p.method === 'CARD').length, amount: payments.filter(p => p.method === 'CARD').reduce((sum, p) => sum + Number(p.amount), 0) },
+    { method: 'BANK_TRANSFER', count: payments.filter(p => p.method === 'BANK_TRANSFER').length, amount: payments.filter(p => p.method === 'BANK_TRANSFER').reduce((sum, p) => sum + Number(p.amount), 0) },
+    { method: 'WALLET', count: payments.filter(p => p.method === 'WALLET').length, amount: payments.filter(p => p.method === 'WALLET').reduce((sum, p) => sum + Number(p.amount), 0) },
   ];
 
   return (
@@ -279,15 +304,15 @@ const FinancePage: React.FC = () => {
             </p>
           
             <div className="space-y-4">
-              {expenses.reduce((acc, expense) => {
-                const existing = acc.find(item => item.category === expense.category);
+              {expenses.reduce((acc: { category: string; amount: number }[], expense: any) => {
+                const existing = acc.find((item: { category: string; amount: number }) => item.category === expense.category);
                 if (existing) {
                   existing.amount += expense.amount;
                 } else {
                   acc.push({ category: expense.category, amount: expense.amount });
                 }
                 return acc;
-              }, [] as { category: string; amount: number }[]).map((category, index) => (
+              }, [] as { category: string; amount: number }[]).map((category: { category: string; amount: number }, index: number) => (
                 <div key={index} className="flex items-center justify-between">
                   <span className="text-sm font-medium">{category.category}</span>
                   <div className="text-right">
@@ -367,12 +392,12 @@ const FinancePage: React.FC = () => {
                   <div className="flex items-center space-x-3">
                     {getMethodIcon(payment.method)}
                     <div>
-                      <p className="font-medium text-sm">{payment.orderNumber}</p>
-                      <p className="text-xs text-[#525252]">{payment.customerName}</p>
+                      <p className="font-medium text-sm">{payment.order?.id || 'N/A'}</p>
+                      <p className="text-xs text-[#525252]">{payment.order?.tenant?.name || 'N/A'}</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-sm">{formatCurrency(payment.netAmount)}</p>
+                    <p className="font-bold text-sm">{formatCurrency(Number(payment.amount))}</p>
                     <span className={getStatusColor(payment.status)}>
                       {getStatusText(payment.status)}
                     </span>

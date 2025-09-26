@@ -41,13 +41,18 @@ export async function GET(request: NextRequest) {
       },
       _sum: {
         totalPrice: true
+      }
+    });
+
+    // Get service names separately
+    const serviceIds = serviceStats.map(stat => stat.serviceId);
+    const services = await prisma.service.findMany({
+      where: {
+        id: { in: serviceIds }
       },
-      include: {
-        service: {
-          select: {
-            name: true
-          }
-        }
+      select: {
+        id: true,
+        name: true
       }
     });
 
@@ -66,11 +71,14 @@ export async function GET(request: NextRequest) {
       success: true,
       data: {
         revenueData,
-        serviceStats: serviceStats.map(stat => ({
-          service: stat.service?.name || 'Service inconnu',
-          orders: stat._count.id,
-          revenue: stat._sum.totalPrice || 0
-        })),
+        serviceStats: serviceStats.map(stat => {
+          const service = services.find(s => s.id === stat.serviceId);
+          return {
+            service: service?.name || 'Service inconnu',
+            orders: stat._count.id,
+            revenue: stat._sum.totalPrice || 0
+          };
+        }),
         summary: {
           totalOrders,
           totalRevenue: totalRevenue._sum.totalAmount || 0,

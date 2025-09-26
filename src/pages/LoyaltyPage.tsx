@@ -1,8 +1,27 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApiCrudSimple } from '@/hooks/useApiCrudSimple';
 import { loyaltyService } from '@/lib/api/services/loyalty';
+
+interface LoyaltySettings {
+  id: string;
+  tenantId: string;
+  isActive: boolean;
+  pointsPerCurrency: number;
+  currencyPerPoint: number;
+  minimumPointsForRedeem: number;
+  expiryMonths: number;
+  welcomeBonus: number;
+  birthdayBonus: number;
+  tiers?: any;
+  rules?: any;
+  createdAt: string;
+  updatedAt: string;
+  tenant?: {
+    name: string;
+  };
+}
 import UpworkCard from '@/components/ui/UpworkCard';
 // Badge component replaced with custom spans
 import UpworkButton from '@/components/ui/UpworkButton';
@@ -24,8 +43,72 @@ import { formatCurrency, formatDateTime } from '@/lib/utils';
 
 const LoyaltyPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState('settings');
+  const [formData, setFormData] = useState({
+    pointsPerCurrency: 1.0,
+    currencyPerPoint: 100.0,
+    minimumPointsForRedeem: 100,
+    expiryMonths: 12,
+    welcomeBonus: 0,
+    birthdayBonus: 0,
+    isActive: true
+  });
 
-  
+  const {
+    items: loyaltySettingsList,
+    selectedItem,
+    isCreateModalOpen,
+    isEditModalOpen,
+    isDeleteModalOpen,
+    isLoading,
+    error,
+    handleCreate,
+    handleEdit,
+    handleDelete,
+    handleView,
+    openCreateModal,
+    openEditModal,
+    openDeleteModal,
+    closeModals,
+    setItems
+  } = useApiCrudSimple<LoyaltySettings>({ service: loyaltyService, entityName: 'loyalty' });
+
+  // Get the first loyalty settings or create default values
+  const loyaltySettings = loyaltySettingsList[0] || {
+    id: '',
+    tenantId: '',
+    isActive: true,
+    pointsPerCurrency: 1.0,
+    currencyPerPoint: 100.0,
+    minimumPointsForRedeem: 100,
+    expiryMonths: 12,
+    welcomeBonus: 0,
+    birthdayBonus: 0,
+    tiers: [],
+    rules: []
+  };
+
+  // Sync form data when loyaltySettings changes
+  useEffect(() => {
+    if (loyaltySettings.id) {
+      setFormData({
+        pointsPerCurrency: Number(loyaltySettings.pointsPerCurrency),
+        currencyPerPoint: Number(loyaltySettings.currencyPerPoint),
+        minimumPointsForRedeem: loyaltySettings.minimumPointsForRedeem,
+        expiryMonths: loyaltySettings.expiryMonths,
+        welcomeBonus: loyaltySettings.welcomeBonus,
+        birthdayBonus: loyaltySettings.birthdayBonus,
+        isActive: loyaltySettings.isActive
+      });
+    }
+  }, [loyaltySettings]);
+
+  // Handle form input changes
+  const handleInputChange = (field: string, value: string | number | boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const customerStats = {
     totalCustomers: 156,
@@ -36,8 +119,28 @@ const LoyaltyPage: React.FC = () => {
     topTierCustomers: 12,
   };
 
+  // Mock data for loyalty transactions
+  const loyaltyTransactions = [
+    {
+      id: '1',
+      customerName: 'Marie Dubois',
+      type: 'EARNED',
+      description: 'Points gagnés pour commande #1234',
+      points: 50,
+      date: new Date().toISOString()
+    },
+    {
+      id: '2',
+      customerName: 'Jean Martin',
+      type: 'REDEEMED',
+      description: 'Points échangés contre réduction',
+      points: -100,
+      date: new Date().toISOString()
+    }
+  ];
+
   const getTierColor = (tier: string) => {
-    const tierData = loyaltySettings.tiers.find(t => t.name === tier);
+    const tierData = loyaltySettings.tiers?.find((t: any) => t.name === tier);
     return tierData?.color || '#6B7280';
   };
 
@@ -196,7 +299,8 @@ const LoyaltyPage: React.FC = () => {
                 <input
                   type="number"
                   step="0.1"
-                  value={loyaltySettings.pointsPerCurrency}
+                  value={formData.pointsPerCurrency}
+                  onChange={(e) => handleInputChange('pointsPerCurrency', parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-[#e5e5e5] rounded-md focus:outline-none focus:ring-2 focus:ring-[#14a800]"
                 />
               </div>
@@ -208,7 +312,8 @@ const LoyaltyPage: React.FC = () => {
                 <input
                   type="number"
                   step="0.1"
-                  value={loyaltySettings.currencyPerPoint}
+                  value={formData.currencyPerPoint}
+                  onChange={(e) => handleInputChange('currencyPerPoint', parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-[#e5e5e5] rounded-md focus:outline-none focus:ring-2 focus:ring-[#14a800]"
                 />
               </div>
@@ -219,7 +324,8 @@ const LoyaltyPage: React.FC = () => {
                 </label>
                 <input
                   type="number"
-                  value={loyaltySettings.minimumPointsForRedeem}
+                  value={formData.minimumPointsForRedeem}
+                  onChange={(e) => handleInputChange('minimumPointsForRedeem', parseInt(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-[#e5e5e5] rounded-md focus:outline-none focus:ring-2 focus:ring-[#14a800]"
                 />
               </div>
@@ -230,7 +336,8 @@ const LoyaltyPage: React.FC = () => {
                 </label>
                 <input
                   type="number"
-                  value={loyaltySettings.expiryMonths}
+                  value={formData.expiryMonths}
+                  onChange={(e) => handleInputChange('expiryMonths', parseInt(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-[#e5e5e5] rounded-md focus:outline-none focus:ring-2 focus:ring-[#14a800]"
                 />
               </div>
@@ -241,7 +348,8 @@ const LoyaltyPage: React.FC = () => {
                 </label>
                 <input
                   type="number"
-                  value={loyaltySettings.welcomeBonus}
+                  value={formData.welcomeBonus}
+                  onChange={(e) => handleInputChange('welcomeBonus', parseInt(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-[#e5e5e5] rounded-md focus:outline-none focus:ring-2 focus:ring-[#14a800]"
                 />
               </div>
@@ -252,7 +360,8 @@ const LoyaltyPage: React.FC = () => {
                 </label>
                 <input
                   type="number"
-                  value={loyaltySettings.birthdayBonus}
+                  value={formData.birthdayBonus}
+                  onChange={(e) => handleInputChange('birthdayBonus', parseInt(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-[#e5e5e5] rounded-md focus:outline-none focus:ring-2 focus:ring-[#14a800]"
                 />
               </div>
@@ -262,7 +371,8 @@ const LoyaltyPage: React.FC = () => {
               <input
                 type="checkbox"
                 id="isActive"
-                checked={loyaltySettings.isActive}
+                checked={formData.isActive}
+                onChange={(e) => handleInputChange('isActive', e.target.checked)}
                 className="h-4 w-4 text-[#14a800] focus:ring-[#14a800] border-[#e5e5e5] rounded"
               />
               <label htmlFor="isActive" className="ml-2 block text-sm text-[#2c2c2c]">
@@ -279,7 +389,7 @@ const LoyaltyPage: React.FC = () => {
 
       {activeTab === 'tiers' && (
         <div className="grid gap-6">
-          {loyaltySettings.tiers.map((tier, index) => (
+          {loyaltySettings.tiers?.map((tier: any, index: number) => (
             <UpworkCard key={index}>
               
                 <div className="flex items-center justify-between">
@@ -296,7 +406,7 @@ const LoyaltyPage: React.FC = () => {
                         {tier.pointsRequired} points requis • {tier.discount}% de réduction
                       </p>
                       <div className="flex flex-wrap gap-1 mt-2">
-                        {tier.benefits.map((benefit, idx) => (
+                        {tier.benefits?.map((benefit: string, idx: number) => (
                           <span key={idx} className="text-xs px-2 py-1 bg-gray-100 text-gray-700 border border-gray-200 rounded">
                             {benefit}
                           </span>
@@ -328,7 +438,7 @@ const LoyaltyPage: React.FC = () => {
             </p>
           
             <div className="space-y-4">
-              {loyaltyTransactions.map((transaction) => (
+              {loyaltyTransactions.map((transaction: any) => (
                 <div key={transaction.id} className="flex items-center justify-between p-4 border border-[#e5e5e5] rounded-lg">
                   <div className="flex items-center space-x-4">
                     <div className="flex-shrink-0">

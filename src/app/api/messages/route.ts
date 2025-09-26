@@ -51,8 +51,7 @@ export async function POST(request: NextRequest) {
         conversationId: body.conversationId,
         senderId: body.senderId,
         content: body.content,
-        messageType: body.messageType || 'TEXT',
-        metadata: body.metadata
+        messageType: body.messageType || 'TEXT'
       },
       include: {
         conversation: { select: { id: true, title: true } },

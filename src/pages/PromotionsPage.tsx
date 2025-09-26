@@ -30,18 +30,14 @@ import {
 
 interface Promotion {
   id: string;
+  tenantId: string;
   name: string;
-  description: string;
-  type: 'percentage' | 'fixed_amount' | 'free_delivery' | 'buy_one_get_one';
+  description?: string;
+  type: string; // percentage, fixed_amount
   value: number;
-  minOrderAmount?: number;
-  maxDiscountAmount?: number;
   startDate: string;
   endDate: string;
   isActive: boolean;
-  usageLimit?: number;
-  usedCount: number;
-  applicableServices: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -69,12 +65,12 @@ const PromotionsPage: React.FC = () => {
     openDeleteModal,
     closeModals,
     setItems
-  } = useApiCrudSimple({ service: promotionsService, entityName: 'promotion' });
+  } = useApiCrudSimple<Promotion>({ service: promotionsService, entityName: 'promotion' });
 
 
   const filteredPromotions = promotions.filter(promotion => {
     const matchesSearch = promotion.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         promotion.description.toLowerCase().includes(searchTerm.toLowerCase());
+                         (promotion.description && promotion.description.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesStatus = statusFilter === 'all' || 
                          (statusFilter === 'active' && promotion.isActive) ||
@@ -91,16 +87,10 @@ const PromotionsPage: React.FC = () => {
     description: '',
     type: 'percentage',
     value: 0,
-    minOrderAmount: 0,
-    maxDiscountAmount: 0,
     startDate: '',
     endDate: '',
     isActive: true,
-    usageLimit: 0,
-    usedCount: 0,
-    applicableServices: [],
-    createdAt: new Date().toISOString().split('T')[0],
-    updatedAt: new Date().toISOString().split('T')[0]
+    tenantId: 'default-tenant' // This should come from auth context
   });
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -118,16 +108,10 @@ const PromotionsPage: React.FC = () => {
       description: '',
       type: 'percentage',
       value: 0,
-      minOrderAmount: 0,
-      maxDiscountAmount: 0,
       startDate: '',
       endDate: '',
       isActive: true,
-      usageLimit: 0,
-      usedCount: 0,
-      applicableServices: [],
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0]
+      tenantId: 'default-tenant'
     });
   };
 
@@ -136,80 +120,6 @@ const PromotionsPage: React.FC = () => {
     openEditModal(promotion);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'bg-green-100 text-green-800';
-      case 'SCHEDULED':
-        return 'bg-blue-100 text-blue-800';
-      case 'EXPIRED':
-        return 'bg-[#f5f5f5] text-[#2c2c2c]';
-      case 'PAUSED':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-[#f5f5f5] text-[#2c2c2c]';
-    }
-  };
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return 'Active';
-      case 'SCHEDULED':
-        return 'Programmée';
-      case 'EXPIRED':
-        return 'Expirée';
-      case 'PAUSED':
-        return 'En pause';
-      default:
-        return status;
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'ACTIVE':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'SCHEDULED':
-        return <Clock className="h-4 w-4 text-blue-500" />;
-      case 'EXPIRED':
-        return <XCircle className="h-4 w-4 text-[#737373]" />;
-      case 'PAUSED':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      default:
-        return <Clock className="h-4 w-4 text-[#737373]" />;
-    }
-  };
-
-  const getTypeText = (type: string) => {
-    switch (type) {
-      case 'PERCENTAGE':
-        return 'Pourcentage';
-      case 'FIXED_AMOUNT':
-        return 'Montant fixe';
-      case 'FREE_SHIPPING':
-        return 'Livraison gratuite';
-      default:
-        return type;
-    }
-  };
-
-  const getTargetAudienceText = (audience: string) => {
-    switch (audience) {
-      case 'ALL_CUSTOMERS':
-        return 'Tous les clients';
-      case 'NEW_CUSTOMERS':
-        return 'Nouveaux clients';
-      case 'LOYAL_CUSTOMERS':
-        return 'Clients fidèles';
-      case 'STUDENTS':
-        return 'Étudiants';
-      case 'FAMILIES':
-        return 'Familles';
-      default:
-        return audience;
-    }
-  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {
@@ -228,17 +138,21 @@ const PromotionsPage: React.FC = () => {
     }).format(date);
   };
 
-  const formatDate = (date: Date) => {
+  const formatDate = (date: string | Date) => {
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(dateObj.getTime())) {
+      return 'Date invalide';
+    }
     return new Intl.DateTimeFormat('fr-FR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
-    }).format(date);
+    }).format(dateObj);
   };
 
-  const activePromotions = promotions.filter(p => p.status === 'ACTIVE').length;
-  const totalUsage = promotions.reduce((sum, p) => sum + p.usedCount, 0);
-  const scheduledPromotions = promotions.filter(p => p.status === 'SCHEDULED').length;
+  const activePromotions = promotions.filter(p => p.isActive).length;
+  const totalPromotions = promotions.length;
+  const inactivePromotions = promotions.filter(p => !p.isActive).length;
 
   return (
     <div className="space-y-6">
@@ -287,8 +201,8 @@ const PromotionsPage: React.FC = () => {
             <div className="flex items-center">
               <Clock className="h-8 w-8 text-[#14a800]" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-[#525252]">Programmées</p>
-                <p className="text-2xl font-bold text-[#2c2c2c]">{scheduledPromotions}</p>
+                <p className="text-sm font-medium text-[#525252]">Total Promotions</p>
+                <p className="text-2xl font-bold text-[#2c2c2c]">{totalPromotions}</p>
               </div>
             </div>
           
@@ -299,8 +213,8 @@ const PromotionsPage: React.FC = () => {
             <div className="flex items-center">
               <Users className="h-8 w-8 text-purple-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-[#525252]">Utilisations Total</p>
-                <p className="text-2xl font-bold text-[#2c2c2c]">{totalUsage}</p>
+                <p className="text-sm font-medium text-[#525252]">Promotions Inactives</p>
+                <p className="text-2xl font-bold text-[#2c2c2c]">{inactivePromotions}</p>
               </div>
             </div>
           
@@ -331,10 +245,8 @@ const PromotionsPage: React.FC = () => {
                 className="px-3 py-2 border border-[#e5e5e5] rounded-md focus:outline-none focus:ring-2 focus:ring-[#14a800] focus:border-transparent"
               >
                 <option value="all">Tous les statuts</option>
-                <option value="ACTIVE">Active</option>
-                <option value="SCHEDULED">Programmée</option>
-                <option value="EXPIRED">Expirée</option>
-                <option value="PAUSED">En pause</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
               </select>
               <select
                 value={typeFilter}
@@ -342,9 +254,8 @@ const PromotionsPage: React.FC = () => {
                 className="px-3 py-2 border border-[#e5e5e5] rounded-md focus:outline-none focus:ring-2 focus:ring-[#14a800] focus:border-transparent"
               >
                 <option value="all">Tous les types</option>
-                <option value="PERCENTAGE">Pourcentage</option>
-                <option value="FIXED_AMOUNT">Montant fixe</option>
-                <option value="FREE_SHIPPING">Livraison gratuite</option>
+                <option value="percentage">Pourcentage</option>
+                <option value="fixed_amount">Montant fixe</option>
               </select>
             </div>
           </div>
@@ -360,35 +271,36 @@ const PromotionsPage: React.FC = () => {
                 <div className="flex-1">
                   <div className="flex items-center space-x-4 mb-3">
                     <div className="flex items-center space-x-2">
-                      {getStatusIcon(promotion.status)}
+                      {promotion.isActive ? (
+                        <CheckCircle className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <XCircle className="h-4 w-4 text-[#737373]" />
+                      )}
                       <h3 className="font-semibold text-lg">{promotion.name}</h3>
                     </div>
-                    <span className={getStatusColor(promotion.status)}>
-                      {getStatusText(promotion.status)}
+                    <span className={promotion.isActive ? 'bg-green-100 text-green-800' : 'bg-[#f5f5f5] text-[#2c2c2c]'}>
+                      {promotion.isActive ? 'Active' : 'Inactive'}
                     </span>
-                    <span variant="outline">
-                      {promotion.code}
-                    </span>
-                    <span variant="outline" className="flex items-center">
-                      {promotion.type === 'PERCENTAGE' ? (
+                    <span className="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-md border flex items-center">
+                      {promotion.type === 'percentage' ? (
                         <Percent className="h-3 w-3 mr-1" />
                       ) : (
                         <TrendingUp className="h-3 w-3 mr-1" />
                       )}
-                      {promotion.type === 'PERCENTAGE' ? `${promotion.value}%` : formatCurrency(promotion.value)}
+                      {promotion.type === 'percentage' ? `${promotion.value}%` : formatCurrency(promotion.value)}
                     </span>
                   </div>
                   
-                  <p className="text-[#525252] mb-4">{promotion.description}</p>
+                  {promotion.description && (
+                    <p className="text-[#525252] mb-4">{promotion.description}</p>
+                  )}
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <p className="text-[#737373]">Détails de la réduction</p>
+                      <p className="text-[#737373]">Type de réduction</p>
                       <p className="font-medium">
-                        {promotion.type === 'PERCENTAGE' ? `${promotion.value}%` : formatCurrency(promotion.value)}
+                        {promotion.type === 'percentage' ? `${promotion.value}%` : formatCurrency(promotion.value)}
                       </p>
-                      <p className="text-[#525252]">Min: {formatCurrency(promotion.minOrderAmount)}</p>
-                      <p className="text-[#525252]">Max: {formatCurrency(promotion.maxDiscount)}</p>
                     </div>
                     <div>
                       <p className="text-[#737373]">Période</p>
@@ -399,27 +311,11 @@ const PromotionsPage: React.FC = () => {
                       <p className="text-[#525252]">Au {formatDate(promotion.endDate)}</p>
                     </div>
                     <div>
-                      <p className="text-[#737373]">Utilisation</p>
-                      <p className="font-medium">{promotion.usedCount} utilisations</p>
+                      <p className="text-[#737373]">Statut</p>
+                      <p className="font-medium">{promotion.isActive ? 'Active' : 'Inactive'}</p>
                       <p className="text-[#525252]">
-                        {promotion.usageLimit ? `Limite: ${promotion.usageLimit}` : 'Sans limite'}
+                        Créé le {formatDate(promotion.createdAt)}
                       </p>
-                    </div>
-                    <div>
-                      <p className="text-[#737373]">Cible & Services</p>
-                      <p className="font-medium">{getTargetAudienceText(promotion.targetAudience)}</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {promotion.applicableServices.slice(0, 2).map((service, index) => (
-                          <span key={index} variant="outline" className="text-xs">
-                            {service}
-                          </span>
-                        ))}
-                        {promotion.applicableServices.length > 2 && (
-                          <span variant="outline" className="text-xs">
-                            +{promotion.applicableServices.length - 2}
-                          </span>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -483,13 +379,11 @@ const PromotionsPage: React.FC = () => {
               </label>
               <select
                 value={formData.type || 'percentage'}
-                onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as Promotion['type'] }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value }))}
                 className="w-full px-3 py-2 border border-[#e5e5e5] rounded-lg focus:ring-2 focus:ring-[#14a800] focus:border-transparent"
               >
                 <option value="percentage">Pourcentage</option>
                 <option value="fixed_amount">Montant fixe</option>
-                <option value="free_delivery">Livraison gratuite</option>
-                <option value="buy_one_get_one">Achetez 1, obtenez 1</option>
               </select>
             </div>
             <UpworkInput
@@ -498,24 +392,6 @@ const PromotionsPage: React.FC = () => {
               value={formData.value || 0}
               onChange={(e) => setFormData(prev => ({ ...prev, value: Number(e.target.value) }))}
               required
-            />
-            <UpworkInput
-              label="Montant minimum de commande"
-              type="number"
-              value={formData.minOrderAmount || 0}
-              onChange={(e) => setFormData(prev => ({ ...prev, minOrderAmount: Number(e.target.value) }))}
-            />
-            <UpworkInput
-              label="Montant maximum de réduction"
-              type="number"
-              value={formData.maxDiscountAmount || 0}
-              onChange={(e) => setFormData(prev => ({ ...prev, maxDiscountAmount: Number(e.target.value) }))}
-            />
-            <UpworkInput
-              label="Limite d'utilisation"
-              type="number"
-              value={formData.usageLimit || 0}
-              onChange={(e) => setFormData(prev => ({ ...prev, usageLimit: Number(e.target.value) }))}
             />
             <UpworkInput
               label="Date de début"

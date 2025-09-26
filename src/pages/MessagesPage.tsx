@@ -3,6 +3,37 @@
 import React, { useState } from 'react';
 import { useApiCrudSimple } from '@/hooks/useApiCrudSimple';
 import { messagesService } from '@/lib/api/services/messages';
+
+interface Conversation {
+  id: string;
+  title: string;
+  type: 'DIRECT' | 'GROUP';
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  tenant?: {
+    name: string;
+  };
+  participants: Array<{
+    user: {
+      name: string;
+      fullname: string;
+      avatar: string;
+    };
+  }>;
+  messages: Array<{
+    id: string;
+    content: string;
+    createdAt: string;
+    sender: {
+      name: string;
+      fullname: string;
+    };
+  }>;
+  _count: {
+    messages: number;
+  };
+}
 import UpworkCard from '@/components/ui/UpworkCard';
 // Badge component replaced with custom spans
 import UpworkButton from '@/components/ui/UpworkButton';
@@ -31,18 +62,18 @@ const MessagesPage: React.FC = () => {
     isCreateModalOpen,
     isEditModalOpen,
     isDeleteModalOpen,
-    formData,
-    setFormData,
+    isLoading,
+    error,
     handleCreate,
     handleEdit,
     handleDelete,
-    handleSubmit,
-    resetForm,
+    handleView,
     openCreateModal,
     openEditModal,
+    openDeleteModal,
     closeModals,
     setItems
-  } = useApiCrudSimple({ service: messagesService, entityName: 'conversation' });
+  } = useApiCrudSimple<Conversation>({ service: messagesService, entityName: 'conversation' });
 
   // Données mock temporaires pour les messages
   const messages = [
@@ -50,7 +81,10 @@ const MessagesPage: React.FC = () => {
       id: '1',
       conversationId: '1',
       senderId: '1',
-      senderName: 'Marie Dubois',
+      sender: {
+        name: 'Marie Dubois',
+        fullname: 'Marie Dubois'
+      },
       content: 'Bonjour, j\'aimerais savoir l\'état de ma commande.',
       timestamp: new Date().toISOString(),
       isRead: true
@@ -59,7 +93,10 @@ const MessagesPage: React.FC = () => {
       id: '2',
       conversationId: '1',
       senderId: '2',
-      senderName: 'Support',
+      sender: {
+        name: 'Support',
+        fullname: 'Support'
+      },
       content: 'Bonjour Marie, votre commande est en cours de traitement.',
       timestamp: new Date().toISOString(),
       isRead: true
@@ -68,7 +105,7 @@ const MessagesPage: React.FC = () => {
 
   const filteredConversations = conversations.filter(conv =>
     conv.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.participants.some(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    conv.participants.some(p => p.user.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   const currentConversation = conversations.find(c => c.id === selectedConversation);
@@ -128,7 +165,7 @@ const MessagesPage: React.FC = () => {
                     {conversation.type === 'GROUP' ? (
                       <Users className="h-5 w-5" />
                     ) : (
-                      getInitials(conversation.participants[0]?.name || 'U')
+                      getInitials(conversation.participants[0]?.user?.name || 'U')
                     )}
                   </div>
                 </div>
@@ -138,32 +175,39 @@ const MessagesPage: React.FC = () => {
                     <h3 className="font-medium text-[#2c2c2c] truncate">
                       {conversation.title}
                     </h3>
-                    {conversation.unreadCount > 0 && (
-                      <span variant="destructive" className="text-xs">
-                        {conversation.unreadCount}
+                    {conversation._count?.messages > 0 && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                        {conversation._count.messages}
                       </span>
                     )}
                   </div>
                   
                   <p className="text-sm text-[#525252] truncate mt-1">
-                    <span className="font-medium">{conversation.lastMessage.sender}:</span>{' '}
-                    {conversation.lastMessage.content}
+                    {conversation.messages && conversation.messages.length > 0 ? (
+                      <>
+                        <span className="font-medium">{conversation.messages[0].sender?.fullname || conversation.messages[0].sender?.name || 'Utilisateur'}:</span>{' '}
+                        {conversation.messages[0].content}
+                      </>
+                    ) : (
+                      <span className="text-[#737373]">Aucun message</span>
+                    )}
                   </p>
                   
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-xs text-[#737373]">
-                      {formatDateTime(conversation.lastMessage.timestamp)}
+                      {conversation.messages && conversation.messages.length > 0 
+                        ? formatDateTime(conversation.messages[0].createdAt)
+                        : formatDateTime(conversation.updatedAt)
+                      }
                     </p>
                     <div className="flex items-center space-x-1">
                       {conversation.participants.slice(0, 3).map((participant, index) => (
                         <div
                           key={index}
-                          className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-                            participant.isOnline ? 'bg-[#f0fdf4]0 text-white' : 'bg-gray-300 text-[#525252]'
-                          }`}
-                          title={participant.name}
+                          className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-gray-300 text-[#525252]"
+                          title={participant.user.name}
                         >
-                          {participant.avatar}
+                          {getInitials(participant.user.name)}
                         </div>
                       ))}
                       {conversation.participants.length > 3 && (
@@ -192,7 +236,7 @@ const MessagesPage: React.FC = () => {
                     {currentConversation.type === 'GROUP' ? (
                       <Users className="h-5 w-5" />
                     ) : (
-                      getInitials(currentConversation.participants[0]?.name || 'U')
+                      getInitials(currentConversation.participants[0]?.user?.name || 'U')
                     )}
                   </div>
                   <div>
@@ -205,12 +249,10 @@ const MessagesPage: React.FC = () => {
                         {currentConversation.participants.slice(0, 4).map((participant, index) => (
                           <div
                             key={index}
-                            className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium ${
-                              participant.isOnline ? 'bg-[#f0fdf4]0 text-white' : 'bg-gray-300 text-[#525252]'
-                            }`}
-                            title={participant.name}
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-medium bg-gray-300 text-[#525252]"
+                            title={participant.user.name}
                           >
-                            {participant.avatar}
+                            {getInitials(participant.user.name)}
                           </div>
                         ))}
                       </div>
@@ -233,7 +275,7 @@ const MessagesPage: React.FC = () => {
                   <div className={`flex space-x-2 max-w-xs lg:max-w-md ${message.sender.name === 'Admin Pressing' ? 'flex-row-reverse space-x-reverse' : ''}`}>
                     <div className="flex-shrink-0">
                       <div className="w-8 h-8 bg-[#f0fdf4]0 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                        {message.sender.avatar}
+                        {getInitials(message.sender.name)}
                       </div>
                     </div>
                     <div className={`flex flex-col ${message.sender.name === 'Admin Pressing' ? 'items-end' : 'items-start'}`}>

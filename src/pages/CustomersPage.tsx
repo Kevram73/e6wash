@@ -36,10 +36,10 @@ interface Customer {
   status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
   totalOrders: number;
   totalSpent: number;
-  lastOrder: Date;
+  lastOrder: string | Date;
   loyaltyPoints: number;
   notes?: string;
-  createdAt: Date;
+  createdAt: string | Date;
 }
 
 const CustomersPage: React.FC = () => {
@@ -64,7 +64,7 @@ const CustomersPage: React.FC = () => {
     openDeleteModal,
     closeModals,
     setItems
-  } = useApiCrudSimple({ service: customersService, entityName: 'customer' });
+  } = useApiCrudSimple<Customer>({ service: customersService, entityName: 'customer' });
 
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch = customer.fullname.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -157,14 +157,22 @@ const CustomersPage: React.FC = () => {
     }).format(amount);
   };
 
-  const formatDateTime = (date: Date) => {
+  const formatDateTime = (date: string | Date) => {
+    if (!date) return 'N/A';
+    
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+    
+    if (isNaN(dateObj.getTime())) {
+      return 'Date invalide';
+    }
+    
     return new Intl.DateTimeFormat('fr-FR', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-    }).format(date);
+    }).format(dateObj);
   };
 
   return (
@@ -456,7 +464,7 @@ const CustomersPage: React.FC = () => {
         onClose={closeModals}
         onConfirm={() => selectedItem && handleDelete(selectedItem.id)}
         title="Supprimer le Client"
-        message={`Êtes-vous sûr de vouloir supprimer le client "${selectedItem?.firstName} ${selectedItem?.lastName}" ? Cette action est irréversible.`}
+        message={`Êtes-vous sûr de vouloir supprimer le client "${selectedItem?.fullname}" ? Cette action est irréversible.`}
         confirmText="Supprimer"
         cancelText="Annuler"
         type="danger"

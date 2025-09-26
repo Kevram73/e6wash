@@ -3,6 +3,34 @@
 import React, { useState } from 'react';
 import { useApiCrudSimple } from '@/hooks/useApiCrudSimple';
 import { notificationsService } from '@/lib/api/services/notifications';
+
+interface Notification {
+  id: string;
+  tenantId: string;
+  title: string;
+  content: string;
+  icon?: string;
+  level: 'INFO' | 'WARNING' | 'ERROR' | 'SUCCESS';
+  link?: string;
+  readAt?: string;
+  userId: string;
+  createdById: string;
+  relatedType?: string;
+  relatedId?: string;
+  createdAt: string;
+  updatedAt: string;
+  tenant?: {
+    name: string;
+  };
+  user?: {
+    name: string;
+    fullname: string;
+  };
+  createdBy?: {
+    name: string;
+    fullname: string;
+  };
+}
 import UpworkCard from '@/components/ui/UpworkCard';
 // Badge component replaced with custom spans
 import UpworkButton from '@/components/ui/UpworkButton';
@@ -25,7 +53,24 @@ const NotificationsPage: React.FC = () => {
   const [levelFilter, setLevelFilter] = useState('all');
   const [readFilter, setReadFilter] = useState('all');
 
-  
+  const {
+    items: notifications,
+    selectedItem,
+    isCreateModalOpen,
+    isEditModalOpen,
+    isDeleteModalOpen,
+    isLoading,
+    error,
+    handleCreate,
+    handleEdit,
+    handleDelete,
+    handleView,
+    openCreateModal,
+    openEditModal,
+    openDeleteModal,
+    closeModals,
+    setItems
+  } = useApiCrudSimple<Notification>({ service: notificationsService, entityName: 'notification' });
 
   const filteredNotifications = notifications.filter(notification => {
     const matchesSearch = notification.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,7 +140,7 @@ const NotificationsPage: React.FC = () => {
             <Bell className="h-8 w-8 mr-3" />
             Notifications
             {unreadCount > 0 && (
-              <span variant="destructive" className="ml-3">
+              <span className="ml-3 px-2 py-1 bg-red-100 text-red-800 text-sm rounded-full">
                 {unreadCount} non lues
               </span>
             )}
@@ -238,7 +283,7 @@ const NotificationsPage: React.FC = () => {
                           {notification.level}
                         </span>
                         {!notification.readAt && (
-                          <span variant="outline" className="bg-blue-100 text-blue-800">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
                             Non lue
                           </span>
                         )}
@@ -248,7 +293,7 @@ const NotificationsPage: React.FC = () => {
                       
                       <div className="flex items-center justify-between text-sm text-[#737373]">
                         <div className="flex items-center space-x-4">
-                          <span>Créé par: {notification.createdBy.name}</span>
+                          <span>Créé par: {notification.createdBy?.name || 'Système'}</span>
                           <span>•</span>
                           <span>{formatDateTime(notification.createdAt)}</span>
                           {notification.readAt && (
@@ -259,12 +304,12 @@ const NotificationsPage: React.FC = () => {
                           )}
                         </div>
                         {notification.link && (
-                          <UpworkButton variant="outline" size="sm" asChild>
-                            <a href={notification.link}>
+                          <a href={notification.link}>
+                            <UpworkButton variant="outline" size="sm">
                               <Eye className="h-4 w-4 mr-1" />
                               Voir
-                            </a>
-                          </UpworkButton>
+                            </UpworkButton>
+                          </a>
                         )}
                       </div>
                     </div>
