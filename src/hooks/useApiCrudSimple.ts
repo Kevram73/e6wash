@@ -66,6 +66,10 @@ export function useApiCrudSimple<T extends { id: string }>({
         else if (response.data.customers && Array.isArray(response.data.customers)) {
           itemsData = response.data.customers;
         }
+        // Format 4.5: response.data.deposits (format deposits API)
+        else if (response.data.deposits && Array.isArray(response.data.deposits)) {
+          itemsData = response.data.deposits;
+        }
         // Format 5: response.data.orders (format orders API)
         else if (response.data.orders && Array.isArray(response.data.orders)) {
           itemsData = response.data.orders;
@@ -126,10 +130,14 @@ export function useApiCrudSimple<T extends { id: string }>({
         else if (Array.isArray(response.data)) {
           itemsData = response.data;
         }
-        // Format 20: response est directement un tableau
-        else if (Array.isArray(response)) {
-          itemsData = response;
-        }
+      // Format 20: response est directement un tableau
+      else if (Array.isArray(response)) {
+        itemsData = response;
+      }
+      // Format 21: response.data.users (format users API)
+      else if (response.data.users && Array.isArray(response.data.users)) {
+        itemsData = response.data.users;
+      }
         else {
           console.warn('Unexpected response format:', response);
           itemsData = [];

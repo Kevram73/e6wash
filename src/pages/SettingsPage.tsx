@@ -43,11 +43,11 @@ const SettingsPage: React.FC = () => {
     <div className="space-y-6">
       <UpworkCard>
         <UpworkCardHeader>
-          <UpworkCardTitle>Informations Personnelles</CardTitle>
+          <UpworkCardTitle>Informations Personnelles</UpworkCardTitle>
           <UpworkCardDescription>
             Gérez vos informations de profil et préférences
-          </CardDescription>
-        </CardHeader>
+          </UpworkCardDescription>
+        </UpworkCardHeader>
         
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -107,13 +107,13 @@ const SettingsPage: React.FC = () => {
 
       <UpworkCard>
         <UpworkCardHeader>
-          <UpworkCardTitle>Changer le Mot de Passe</CardTitle>
+          <UpworkCardTitle>Changer le Mot de Passe</UpworkCardTitle>
           <UpworkCardDescription>
             Mettez à jour votre mot de passe pour sécuriser votre compte
-          </CardDescription>
-        </CardHeader>
+          </UpworkCardDescription>
+        </UpworkCardHeader>
         
-          <div>
+        <div>
             <label className="block text-sm font-medium text-[#525252] mb-1">
               Mot de passe actuel
             </label>
@@ -158,11 +158,11 @@ const SettingsPage: React.FC = () => {
     <div className="space-y-6">
       <UpworkCard>
         <UpworkCardHeader>
-          <UpworkCardTitle>Informations de l'Entreprise</CardTitle>
+          <UpworkCardTitle>Informations de l'Entreprise</UpworkCardTitle>
           <UpworkCardDescription>
             Gérez les informations de votre pressing
-          </CardDescription>
-        </CardHeader>
+          </UpworkCardDescription>
+        </UpworkCardHeader>
         
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

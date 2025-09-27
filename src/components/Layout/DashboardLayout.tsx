@@ -24,7 +24,9 @@ import {
   TrendingUp,
   FileText,
   ShoppingBag,
-  Wrench
+  Wrench,
+  Bot,
+  DollarSign
 } from 'lucide-react';
 import { UserRole } from '../../types';
 
@@ -57,6 +59,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           { name: 'Promotions', href: '/promotions', icon: Gift, roles: ['SUPER_ADMIN'] },
           { name: 'Stock', href: '/stock', icon: FileText, roles: ['SUPER_ADMIN'] },
           { name: 'Finances', href: '/finance', icon: TrendingUp, roles: ['SUPER_ADMIN'] },
+          { name: 'Statistiques Ventes', href: '/sales-stats', icon: BarChart3, roles: ['SUPER_ADMIN'] },
+          { name: 'Statistiques Clients', href: '/customer-stats', icon: Users, roles: ['SUPER_ADMIN'] },
+          { name: 'Rapports Journaliers', href: '/daily-reports', icon: FileText, roles: ['SUPER_ADMIN'] },
+          { name: 'Test Chatbot', href: '/chatbot-test', icon: Bot, roles: ['SUPER_ADMIN'] },
           { name: 'Tâches', href: '/tasks', icon: CheckSquare, roles: ['SUPER_ADMIN'] },
           { name: 'Messages', href: '/messages', icon: MessageSquare, roles: ['SUPER_ADMIN'] },
           { name: 'Notifications', href: '/notifications', icon: Bell, roles: ['SUPER_ADMIN'] },
@@ -70,6 +76,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         return [
           ...baseItems,
           { name: 'Commandes', href: '/orders', icon: Package, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
+          { name: 'Dépôts', href: '/deposits', icon: Package, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
+          { name: 'Paiements Échelonnés', href: '/installments', icon: CreditCard, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
           { name: 'Clients', href: '/customers', icon: Users, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
           { name: 'Agences', href: '/agences', icon: Store, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
           { name: 'Collecteurs', href: '/collectors', icon: Truck, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
@@ -77,10 +85,15 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           { name: 'Promotions', href: '/promotions', icon: Gift, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
           { name: 'Stock', href: '/stock', icon: FileText, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
           { name: 'Finances', href: '/finance', icon: TrendingUp, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
+          { name: 'Statistiques Ventes', href: '/sales-stats', icon: BarChart3, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
+          { name: 'Statistiques Clients', href: '/customer-stats', icon: Users, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
+          { name: 'Rapports Journaliers', href: '/daily-reports', icon: FileText, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
+          { name: 'Test Chatbot', href: '/chatbot-test', icon: Bot, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
           { name: 'Tâches', href: '/tasks', icon: CheckSquare, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
           { name: 'Messages', href: '/messages', icon: MessageSquare, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
           { name: 'Notifications', href: '/notifications', icon: Bell, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
           { name: 'Fidélité', href: '/loyalty', icon: Gift, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
+          { name: 'Gestion des Utilisateurs', href: '/users', icon: Users, roles: ['ADMIN', 'OWNER'] },
           { name: 'Rapports', href: '/reports', icon: BarChart3, roles: ['PRESSING_ADMIN', 'ADMIN', 'OWNER'] },
         ];
 
@@ -89,9 +102,14 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
         return [
           ...baseItems,
           { name: 'Commandes', href: '/orders', icon: Package, roles: ['AGENT', 'CAISSIER'] },
+          { name: 'Dépôts', href: '/deposits', icon: Package, roles: ['AGENT', 'CAISSIER'] },
+          { name: 'Paiements Échelonnés', href: '/installments', icon: CreditCard, roles: ['AGENT', 'CAISSIER'] },
           { name: 'Clients', href: '/customers', icon: Users, roles: ['AGENT', 'CAISSIER'] },
           { name: 'Services', href: '/services', icon: Settings, roles: ['AGENT', 'CAISSIER'] },
           { name: 'Stock', href: '/stock', icon: FileText, roles: ['AGENT', 'CAISSIER'] },
+          { name: 'Statistiques Ventes', href: '/sales-stats', icon: BarChart3, roles: ['AGENT', 'CAISSIER'] },
+          { name: 'Statistiques Clients', href: '/customer-stats', icon: Users, roles: ['AGENT', 'CAISSIER'] },
+          { name: 'Rapports Journaliers', href: '/daily-reports', icon: FileText, roles: ['AGENT', 'CAISSIER'] },
           { name: 'Tâches', href: '/tasks', icon: CheckSquare, roles: ['AGENT', 'CAISSIER'] },
           { name: 'Messages', href: '/messages', icon: MessageSquare, roles: ['AGENT', 'CAISSIER'] },
           { name: 'Notifications', href: '/notifications', icon: Bell, roles: ['AGENT', 'CAISSIER'] },

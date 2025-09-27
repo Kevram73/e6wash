@@ -1,443 +1,341 @@
-'use client';
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApiCrudSimple } from '@/hooks/useApiCrudSimple';
-import { billingService } from '@/lib/api/services/billing';
-
-interface Payment {
-  id: string;
-  orderId: string;
-  agencyId: string;
-  userId?: string;
-  amount: number;
-  method: string;
-  status: 'PENDING' | 'PAID' | 'PARTIAL' | 'REFUNDED';
-  transactionId?: string;
-  notes?: string;
-  paidAt?: string;
-  createdAt: string;
-  updatedAt: string;
-  order?: {
-    id: string;
-    tenant?: {
-      name: string;
-    };
-  };
-  agency?: {
-    name: string;
-  };
-}
 import UpworkCard from '@/components/ui/UpworkCard';
-// Badge component replaced with custom spans
 import UpworkButton from '@/components/ui/UpworkButton';
+import UpworkInput from '@/components/ui/UpworkInput';
 import { 
-  Search,
-  Filter,
-  Plus,
-  Eye,
-  Edit,
-  Trash2,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  CreditCard,
-  Banknote,
-  Smartphone,
-  Wallet,
+  DollarSign, 
+  TrendingUp, 
+  Users, 
   Calendar,
-  Download,
-  BarChart3,
-  PieChart
+  Building2,
+  CreditCard,
+  Filter,
+  Download
 } from 'lucide-react';
 
+interface DailyReceiptsData {
+  date: string;
+  summary: {
+    totalReceipts: number;
+    totalOrders: number;
+    paidOrders: number;
+    partialOrders: number;
+    averageOrderValue: number;
+  };
+  receiptsByAgency: Array<{
+    agencyName: string;
+    totalAmount: number;
+    orderCount: number;
+    payments: any[];
+  }>;
+  receiptsByMethod: Array<{
+    method: string;
+    totalAmount: number;
+    count: number;
+  }>;
+  payments: any[];
+}
+
 const FinancePage: React.FC = () => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [periodFilter, setPeriodFilter] = useState('month');
-  const [typeFilter, setTypeFilter] = useState('all');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedAgency, setSelectedAgency] = useState('');
+  const [receiptsData, setReceiptsData] = useState<DailyReceiptsData | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const {
-    items: payments,
-    isLoading,
-    error
-  } = useApiCrudSimple<Payment>({ service: billingService, entityName: 'billing' });
+  const { data: agencies } = useApiCrudSimple('agencies');
 
-  // Variables calculées pour remplacer les données mock
-  const expenses: any[] = []; // TODO: Remplacer par un appel API pour les dépenses
-  const filteredPayments = payments.filter(payment => {
-    const matchesSearch = (payment.order?.id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (payment.order?.tenant?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (payment.transactionId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (payment.notes || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesType = typeFilter === 'all' || payment.method === typeFilter;
-    
-    return matchesSearch && matchesType;
-  });
+  const fetchReceipts = async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        date: selectedDate,
+        ...(selectedAgency && { agencyId: selectedAgency })
+      });
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'PAID':
-        return 'bg-green-100 text-green-800';
-      case 'PENDING':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'PARTIAL':
-        return 'bg-blue-100 text-blue-800';
-      case 'REFUNDED':
-        return 'bg-[#f5f5f5] text-[#2c2c2c]';
-      default:
-        return 'bg-[#f5f5f5] text-[#2c2c2c]';
+      const response = await fetch(`/api/finance/daily-receipts?${params}`);
+      const result = await response.json();
+      
+      if (result.success) {
+        setReceiptsData(result.data);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des recettes:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'PAID':
-        return 'Payé';
-      case 'PENDING':
-        return 'En attente';
-      case 'PARTIAL':
-        return 'Partiel';
-      case 'REFUNDED':
-        return 'Remboursé';
-      default:
-        return status;
-    }
-  };
-
-  const getMethodIcon = (method: string) => {
-    switch (method) {
-      case 'CASH':
-        return <Banknote className="h-4 w-4" />;
-      case 'MOBILE_MONEY':
-        return <Smartphone className="h-4 w-4" />;
-      case 'CARD':
-        return <CreditCard className="h-4 w-4" />;
-      case 'BANK_TRANSFER':
-        return <DollarSign className="h-4 w-4" />;
-      case 'WALLET':
-        return <Wallet className="h-4 w-4" />;
-      default:
-        return <DollarSign className="h-4 w-4" />;
-    }
-  };
-
-  const getMethodText = (method: string) => {
-    switch (method) {
-      case 'CASH':
-        return 'Espèces';
-      case 'MOBILE_MONEY':
-        return 'Mobile Money';
-      case 'CARD':
-        return 'Carte bancaire';
-      case 'BANK_TRANSFER':
-        return 'Virement bancaire';
-      case 'WALLET':
-        return 'Wallet interne';
-      default:
-        return method;
-    }
-  };
+  useEffect(() => {
+    fetchReceipts();
+  }, [selectedDate, selectedAgency]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
-      currency: 'XAF',
+      currency: 'XOF',
+      minimumFractionDigits: 0
     }).format(amount);
   };
 
-  const formatDateTime = (date: Date) => {
-    return new Intl.DateTimeFormat('fr-FR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    }).format(date);
+  const exportReceipts = () => {
+    if (!receiptsData) return;
+    
+    const csvContent = [
+      ['Date', 'Agence', 'Montant', 'Méthode', 'Client', 'Statut'].join(','),
+      ...receiptsData.payments.map(payment => [
+        new Date(payment.createdAt).toLocaleDateString('fr-FR'),
+        payment.agency?.name || '',
+        payment.amount,
+        payment.method,
+        payment.order?.customer?.fullname || '',
+        payment.status
+      ].join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `recettes-${selectedDate}.csv`;
+    a.click();
   };
-
-  const totalRevenue = payments
-    .filter(p => p.status === 'PAID')
-    .reduce((sum, p) => sum + Number(p.amount), 0);
-  
-  const totalExpenses = expenses
-    .filter(e => e.status === 'PAID')
-    .reduce((sum, e) => sum + e.amount, 0);
-  
-  const netProfit = totalRevenue - totalExpenses;
-  
-  const pendingPayments = payments.filter(p => p.status === 'PENDING').length;
-  const pendingExpenses = expenses.filter(e => e.status === 'PENDING').length;
-
-  const paymentMethods = [
-    { method: 'CASH', count: payments.filter(p => p.method === 'CASH').length, amount: payments.filter(p => p.method === 'CASH').reduce((sum, p) => sum + Number(p.amount), 0) },
-    { method: 'MOBILE_MONEY', count: payments.filter(p => p.method === 'MOBILE_MONEY').length, amount: payments.filter(p => p.method === 'MOBILE_MONEY').reduce((sum, p) => sum + Number(p.amount), 0) },
-    { method: 'CARD', count: payments.filter(p => p.method === 'CARD').length, amount: payments.filter(p => p.method === 'CARD').reduce((sum, p) => sum + Number(p.amount), 0) },
-    { method: 'BANK_TRANSFER', count: payments.filter(p => p.method === 'BANK_TRANSFER').length, amount: payments.filter(p => p.method === 'BANK_TRANSFER').reduce((sum, p) => sum + Number(p.amount), 0) },
-    { method: 'WALLET', count: payments.filter(p => p.method === 'WALLET').length, amount: payments.filter(p => p.method === 'WALLET').reduce((sum, p) => sum + Number(p.amount), 0) },
-  ];
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* En-tête */}
+      <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-[#2c2c2c]">Finances</h1>
-          <p className="text-[#525252] mt-1">
-            Gestion financière et comptabilité
-          </p>
+          <h1 className="text-2xl font-bold text-gray-900">Finance</h1>
+          <p className="text-gray-600">Gestion des recettes et finances</p>
         </div>
-        <div className="flex space-x-2">
-          <UpworkButton variant="outline" className="flex items-center">
+        <div className="flex space-x-3">
+          <UpworkButton
+            variant="outline"
+            onClick={exportReceipts}
+            disabled={!receiptsData}
+          >
             <Download className="h-4 w-4 mr-2" />
             Exporter
           </UpworkButton>
-          <UpworkButton className="flex items-center">
-            <Plus className="h-4 w-4 mr-2" />
-            Nouvelle Transaction
-          </UpworkButton>
         </div>
-      </div>
-
-      {/* KPIs Financiers */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <UpworkCard>
-          
-            <div className="flex items-center">
-              <TrendingUp className="h-8 w-8 text-[#14a800]" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-[#525252]">Revenus</p>
-                <p className="text-2xl font-bold text-[#2c2c2c]">{formatCurrency(totalRevenue)}</p>
-                <p className="text-xs text-[#14a800]">+12.5% ce mois</p>
-              </div>
-            </div>
-          
-        </UpworkCard>
-        
-        <UpworkCard>
-          
-            <div className="flex items-center">
-              <TrendingDown className="h-8 w-8 text-red-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-[#525252]">Dépenses</p>
-                <p className="text-2xl font-bold text-[#2c2c2c]">{formatCurrency(totalExpenses)}</p>
-                <p className="text-xs text-red-600">+8.3% ce mois</p>
-              </div>
-            </div>
-          
-        </UpworkCard>
-        
-        <UpworkCard>
-          
-            <div className="flex items-center">
-              <DollarSign className="h-8 w-8 text-[#14a800]" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-[#525252]">Bénéfice Net</p>
-                <p className={`text-2xl font-bold ${netProfit >= 0 ? 'text-[#14a800]' : 'text-red-600'}`}>
-                  {formatCurrency(netProfit)}
-                </p>
-                <p className={`text-xs ${netProfit >= 0 ? 'text-[#14a800]' : 'text-red-600'}`}>
-                  {netProfit >= 0 ? '+15.2%' : '-5.1%'} ce mois
-                </p>
-              </div>
-            </div>
-          
-        </UpworkCard>
-        
-        <UpworkCard>
-          
-            <div className="flex items-center">
-              <Calendar className="h-8 w-8 text-purple-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-[#525252]">En Attente</p>
-                <p className="text-2xl font-bold text-[#2c2c2c]">{pendingPayments + pendingExpenses}</p>
-                <p className="text-xs text-[#525252]">Paiements & Dépenses</p>
-              </div>
-            </div>
-          
-        </UpworkCard>
-      </div>
-
-      {/* Graphiques */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Répartition des moyens de paiement */}
-        <UpworkCard>
-          <div className="p-6">
-            <div className="flex items-center mb-2">
-              <PieChart className="h-5 w-5 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Moyens de Paiement</h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Répartition des revenus par méthode de paiement
-            </p>
-          
-            <div className="space-y-4">
-              {paymentMethods.map((method, index) => (
-                <div key={index} className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex items-center space-x-2">
-                      {getMethodIcon(method.method)}
-                      <span className="text-sm font-medium">{getMethodText(method.method)}</span>
-                    </div>
-                    <span className="px-2 py-1 bg-gray-100 text-gray-700 border border-gray-200 rounded text-xs font-medium">{method.count}</span>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-bold">{formatCurrency(method.amount)}</p>
-                    <p className="text-xs text-[#525252]">
-                      {((method.amount / totalRevenue) * 100).toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </UpworkCard>
-
-        {/* Dépenses par catégorie */}
-        <UpworkCard>
-          <div className="p-6">
-            <div className="flex items-center mb-2">
-              <BarChart3 className="h-5 w-5 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Dépenses par Catégorie</h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Répartition des dépenses par type
-            </p>
-          
-            <div className="space-y-4">
-              {expenses.reduce((acc: { category: string; amount: number }[], expense: any) => {
-                const existing = acc.find((item: { category: string; amount: number }) => item.category === expense.category);
-                if (existing) {
-                  existing.amount += expense.amount;
-                } else {
-                  acc.push({ category: expense.category, amount: expense.amount });
-                }
-                return acc;
-              }, [] as { category: string; amount: number }[]).map((category: { category: string; amount: number }, index: number) => (
-                <div key={index} className="flex items-center justify-between">
-                  <span className="text-sm font-medium">{category.category}</span>
-                  <div className="text-right">
-                    <p className="text-sm font-bold">{formatCurrency(category.amount)}</p>
-                    <p className="text-xs text-[#525252]">
-                      {((category.amount / totalExpenses) * 100).toFixed(1)}%
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </UpworkCard>
       </div>
 
       {/* Filtres */}
       <UpworkCard>
         <div className="p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-[#a3a3a3] h-4 w-4" />
-                <input
-                  type="text"
-                  placeholder="Rechercher par numéro de commande, client ou référence..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-[#e5e5e5] rounded-md focus:outline-none focus:ring-2 focus:ring-[#14a800] focus:border-transparent"
-                />
-              </div>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Calendar className="h-5 w-5 text-gray-400" />
+              <UpworkInput
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-48"
+              />
             </div>
             <div className="flex items-center space-x-2">
-              <Filter className="h-4 w-4 text-[#a3a3a3]" />
+              <Building2 className="h-5 w-5 text-gray-400" />
               <select
-                value={periodFilter}
-                onChange={(e) => setPeriodFilter(e.target.value)}
-                className="px-3 py-2 border border-[#e5e5e5] rounded-md focus:outline-none focus:ring-2 focus:ring-[#14a800] focus:border-transparent"
+                value={selectedAgency}
+                onChange={(e) => setSelectedAgency(e.target.value)}
+                className="w-48 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="week">Cette semaine</option>
-                <option value="month">Ce mois</option>
-                <option value="quarter">Ce trimestre</option>
-                <option value="year">Cette année</option>
-              </select>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value)}
-                className="px-3 py-2 border border-[#e5e5e5] rounded-md focus:outline-none focus:ring-2 focus:ring-[#14a800] focus:border-transparent"
-              >
-                <option value="all">Tous les types</option>
-                <option value="CASH">Espèces</option>
-                <option value="MOBILE_MONEY">Mobile Money</option>
-                <option value="CARD">Carte bancaire</option>
-                <option value="BANK_TRANSFER">Virement bancaire</option>
-                <option value="WALLET">Wallet interne</option>
+                <option value="">Toutes les agences</option>
+                {agencies?.map((agency: any) => (
+                  <option key={agency.id} value={agency.id}>
+                    {agency.name}
+                  </option>
+                ))}
               </select>
             </div>
+            <UpworkButton onClick={fetchReceipts} disabled={loading}>
+              <Filter className="h-4 w-4 mr-2" />
+              {loading ? 'Chargement...' : 'Filtrer'}
+            </UpworkButton>
           </div>
         </div>
       </UpworkCard>
 
-      {/* Transactions récentes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Paiements */}
-        <UpworkCard>
-          <div className="p-6">
-            <div className="flex items-center mb-2">
-              <TrendingUp className="h-5 w-5 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Paiements Récents</h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Dernières transactions entrantes
-            </p>
-          
-            <div className="space-y-4">
-              {filteredPayments.map((payment) => (
-                <div key={payment.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    {getMethodIcon(payment.method)}
+      {receiptsData && (
+        <>
+          {/* Résumé */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <UpworkCard>
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <DollarSign className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Total Recettes</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {formatCurrency(receiptsData.summary.totalReceipts)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </UpworkCard>
+
+            <UpworkCard>
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <TrendingUp className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Commandes</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {receiptsData.summary.totalOrders}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </UpworkCard>
+
+            <UpworkCard>
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <Users className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Payées</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {receiptsData.summary.paidOrders}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </UpworkCard>
+
+            <UpworkCard>
+              <div className="p-6">
+                <div className="flex items-center">
+                  <div className="p-2 bg-yellow-100 rounded-lg">
+                    <CreditCard className="h-6 w-6 text-yellow-600" />
+                  </div>
+                  <div className="ml-4">
+                    <p className="text-sm font-medium text-gray-600">Partielles</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {receiptsData.summary.partialOrders}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </UpworkCard>
+          </div>
+
+          {/* Recettes par agence */}
+          <UpworkCard>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Recettes par Agence
+              </h3>
+              <div className="space-y-4">
+                {receiptsData.receiptsByAgency.map((agency, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div>
-                      <p className="font-medium text-sm">{payment.order?.id || 'N/A'}</p>
-                      <p className="text-xs text-[#525252]">{payment.order?.tenant?.name || 'N/A'}</p>
+                      <p className="font-medium text-gray-900">{agency.agencyName}</p>
+                      <p className="text-sm text-gray-600">{agency.orderCount} commandes</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900">
+                        {formatCurrency(agency.totalAmount)}
+                      </p>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-sm">{formatCurrency(Number(payment.amount))}</p>
-                    <span className={getStatusColor(payment.status)}>
-                      {getStatusText(payment.status)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        </UpworkCard>
+          </UpworkCard>
 
-        {/* Dépenses */}
-        <UpworkCard>
-          <div className="p-6">
-            <div className="flex items-center mb-2">
-              <TrendingDown className="h-5 w-5 mr-2" />
-              <h3 className="text-lg font-semibold text-gray-900">Dépenses Récentes</h3>
-            </div>
-            <p className="text-sm text-gray-600 mb-4">
-              Dernières sorties d'argent
-            </p>
-          
-            <div className="space-y-4">
-              {expenses.map((expense) => (
-                <div key={expense.id} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <p className="font-medium text-sm">{expense.description}</p>
-                    <p className="text-xs text-[#525252]">{expense.supplier}</p>
+          {/* Recettes par méthode de paiement */}
+          <UpworkCard>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Recettes par Méthode de Paiement
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {receiptsData.receiptsByMethod.map((method, index) => (
+                  <div key={index} className="p-4 bg-gray-50 rounded-lg">
+                    <p className="font-medium text-gray-900 capitalize">{method.method}</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {formatCurrency(method.totalAmount)}
+                    </p>
+                    <p className="text-sm text-gray-600">{method.count} transactions</p>
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold text-sm text-red-600">{formatCurrency(expense.amount)}</p>
-                    <span className={getStatusColor(expense.status)}>
-                      {getStatusText(expense.status)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        </UpworkCard>
-      </div>
+          </UpworkCard>
+
+          {/* Détail des paiements */}
+          <UpworkCard>
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Détail des Paiements
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Heure
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Client
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Agence
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Montant
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Méthode
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Statut
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {receiptsData.payments.map((payment, index) => (
+                      <tr key={index}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(payment.createdAt).toLocaleTimeString('fr-FR')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {payment.order?.customer?.fullname || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {payment.agency?.name || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {formatCurrency(payment.amount)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 capitalize">
+                          {payment.method}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                            payment.status === 'PAID' 
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {payment.status === 'PAID' ? 'Payé' : 'Partiel'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </UpworkCard>
+        </>
+      )}
     </div>
   );
 };

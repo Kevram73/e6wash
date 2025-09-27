@@ -334,7 +334,7 @@ const AgencesPage: React.FC = () => {
                         <p className="text-[#525252]">{agency.phone}</p>
                       </div>
                       <p className="text-[#525252]">{agency.email}</p>
-                      <p className="text-[#525252]">{agency.city}, {agency.country.name}</p>
+                      <p className="text-[#525252]">{agency.city}{agency.country ? `, ${agency.country.name}` : ''}</p>
                     </div>
                     <div>
                       <p className="text-[#737373]">Pressing</p>

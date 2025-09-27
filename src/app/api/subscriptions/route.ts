@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
         {
           id: '1',
           name: 'Plan Standard',
-          description: 'Plan d'abonnement standard',
+          description: "Plan d'abonnement standard",
           price: 50000,
           currency: 'XAF',
           isActive: true,

@@ -84,11 +84,11 @@ const NewOrderPage: React.FC = () => {
         <UpworkCardTitle className="flex items-center">
           <Package className="h-5 w-5 mr-2" />
           Choisir le Service
-        </CardTitle>
+        </UpworkCardTitle>
         <UpworkCardDescription>
           Sélectionnez le type de service dont vous avez besoin
-        </CardDescription>
-      </CardHeader>
+        </UpworkCardDescription>
+      </UpworkCardHeader>
       
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {services.map((service) => (
@@ -135,13 +135,13 @@ const NewOrderPage: React.FC = () => {
         <UpworkCardTitle className="flex items-center">
           <MapPin className="h-5 w-5 mr-2" />
           Détails de la Collecte
-        </CardTitle>
+        </UpworkCardTitle>
         <UpworkCardDescription>
           Configurez la collecte et la livraison
-        </CardDescription>
-      </CardHeader>
+        </UpworkCardDescription>
+      </UpworkCardHeader>
       
-        <div>
+      <div>
           <label className="block text-sm font-medium text-[#525252] mb-2">
             Type de collecte
           </label>
@@ -239,11 +239,11 @@ const NewOrderPage: React.FC = () => {
         <UpworkCardTitle className="flex items-center">
           <ShoppingCart className="h-5 w-5 mr-2" />
           Articles à Traiter
-        </CardTitle>
+        </UpworkCardTitle>
         <UpworkCardDescription>
           Ajoutez les vêtements et articles à traiter
-        </CardDescription>
-      </CardHeader>
+        </UpworkCardDescription>
+      </UpworkCardHeader>
       
         {orderData.items.map((item, index) => (
           <div key={index} className="p-4 border rounded-lg">

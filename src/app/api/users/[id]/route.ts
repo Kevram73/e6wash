@@ -1,21 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+import bcrypt from 'bcryptjs';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import { prisma } from '@/lib/db';
-import { z } from 'zod';
-
-const updateUserSchema = z.object({
-  email: z.string().email().optional(),
-  fullname: z.string().min(2).optional(),
-  name: z.string().min(2).optional(),
-  role: z.enum(['ADMIN', 'OWNER', 'EMPLOYEE', 'CAISSIER', 'MANAGER', 'COLLECTOR', 'CLIENT']).optional(),
-  tenantId: z.string().optional(),
-  agencyId: z.string().optional(),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  isActive: z.boolean().optional(),
-  status: z.boolean().optional(),
-});
 
 export async function GET(
   request: NextRequest,
@@ -23,42 +10,57 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: 'Non authentifié' },
-        { status: 401 }
-      );
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: params.id },
-      include: {
-        tenant: true,
-        agency: true,
-        agencies: {
-          include: {
-            agency: true,
-          },
-        },
+    const { id } = params;
+
+    // Récupérer l'utilisateur actuel
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { tenant: true }
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
+    }
+
+    // Récupérer l'utilisateur demandé
+    const user = await prisma.user.findFirst({
+      where: {
+        id,
+        tenantId: currentUser.tenantId
       },
+      include: {
+        agency: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        createdBy: {
+          select: {
+            id: true,
+            fullname: true
+          }
+        }
+      }
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Utilisateur non trouvé' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
     }
 
-    // Retourner l'utilisateur sans le mot de passe
-    const { password, ...userWithoutPassword } = user;
+    return NextResponse.json({
+      success: true,
+      data: user
+    });
 
-    return NextResponse.json({ user: userWithoutPassword });
   } catch (error) {
     console.error('Erreur lors de la récupération de l\'utilisateur:', error);
     return NextResponse.json(
-      { error: 'Erreur interne du serveur' },
+      { error: 'Erreur lors de la récupération de l\'utilisateur' },
       { status: 500 }
     );
   }
@@ -70,72 +72,109 @@ export async function PUT(
 ) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: 'Non authentifié' },
-        { status: 401 }
-      );
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
+    const { id } = params;
     const body = await request.json();
-    const validatedData = updateUserSchema.parse(body);
+    const { fullname, email, phone, roleId, agencyId, isActive } = body;
 
-    // Vérifier si l'utilisateur existe
-    const existingUser = await prisma.user.findUnique({
-      where: { id: params.id },
+    // Récupérer l'utilisateur actuel
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { tenant: true }
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
+    }
+
+    // Vérifier que l'utilisateur à modifier appartient au même tenant
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        id,
+        tenantId: currentUser.tenantId
+      }
     });
 
     if (!existingUser) {
-      return NextResponse.json(
-        { error: 'Utilisateur non trouvé' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
     }
 
-    // Vérifier si l'email est déjà utilisé par un autre utilisateur
-    if (validatedData.email && validatedData.email !== existingUser.email) {
-      const emailExists = await prisma.user.findUnique({
-        where: { email: validatedData.email },
+    // Vérifier si l'email existe déjà (si modifié)
+    if (email && email !== existingUser.email) {
+      const emailExists = await prisma.user.findFirst({
+        where: {
+          email,
+          tenantId: currentUser.tenantId,
+          id: { not: id }
+        }
       });
 
       if (emailExists) {
         return NextResponse.json(
-          { error: 'Cet email est déjà utilisé' },
+          { error: 'Un utilisateur avec cet email existe déjà' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Vérifier que l'agence appartient au tenant
+    if (agencyId) {
+      const agency = await prisma.agency.findFirst({
+        where: {
+          id: agencyId,
+          tenantId: currentUser.tenantId
+        }
+      });
+
+      if (!agency) {
+        return NextResponse.json(
+          { error: 'Agence non trouvée' },
           { status: 400 }
         );
       }
     }
 
     // Mettre à jour l'utilisateur
-    const user = await prisma.user.update({
-      where: { id: params.id },
-      data: validatedData,
-      include: {
-        tenant: true,
-        agency: true,
-      },
-    });
+    const updateData: any = {};
+    if (fullname !== undefined) updateData.fullname = fullname;
+    if (email !== undefined) updateData.email = email;
+    if (phone !== undefined) updateData.phone = phone;
+    if (roleId !== undefined) updateData.role = roleId;
+    if (agencyId !== undefined) updateData.agencyId = agencyId;
+    if (isActive !== undefined) updateData.isActive = isActive;
 
-    // Retourner l'utilisateur sans le mot de passe
-    const { password, ...userWithoutPassword } = user;
+    const user = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      include: {
+        agency: {
+          select: {
+            id: true,
+            name: true
+          }
+        },
+        createdBy: {
+          select: {
+            id: true,
+            fullname: true
+          }
+        }
+      }
+    });
 
     return NextResponse.json({
+      success: true,
       message: 'Utilisateur mis à jour avec succès',
-      user: userWithoutPassword,
+      data: user
     });
+
   } catch (error) {
     console.error('Erreur lors de la mise à jour de l\'utilisateur:', error);
-    
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: 'Données invalides', details: error.issues },
-        { status: 400 }
-      );
-    }
-
     return NextResponse.json(
-      { error: 'Erreur interne du serveur' },
+      { error: 'Erreur lors de la mise à jour de l\'utilisateur' },
       { status: 500 }
     );
   }
@@ -147,39 +186,56 @@ export async function DELETE(
 ) {
   try {
     const session = await getServerSession(authOptions);
-
-    if (!session?.user?.email) {
-      return NextResponse.json(
-        { error: 'Non authentifié' },
-        { status: 401 }
-      );
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 401 });
     }
 
-    // Vérifier si l'utilisateur existe
-    const existingUser = await prisma.user.findUnique({
-      where: { id: params.id },
+    const { id } = params;
+
+    // Récupérer l'utilisateur actuel
+    const currentUser = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: { tenant: true }
     });
 
-    if (!existingUser) {
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
+    }
+
+    // Empêcher la suppression de soi-même
+    if (id === currentUser.id) {
       return NextResponse.json(
-        { error: 'Utilisateur non trouvé' },
-        { status: 404 }
+        { error: 'Vous ne pouvez pas supprimer votre propre compte' },
+        { status: 400 }
       );
     }
 
-    // Soft delete - marquer comme supprimé
-    await prisma.user.update({
-      where: { id: params.id },
-      data: { deletedAt: new Date() },
+    // Vérifier que l'utilisateur à supprimer appartient au même tenant
+    const userToDelete = await prisma.user.findFirst({
+      where: {
+        id,
+        tenantId: currentUser.tenantId
+      }
+    });
+
+    if (!userToDelete) {
+      return NextResponse.json({ error: 'Utilisateur non trouvé' }, { status: 404 });
+    }
+
+    // Supprimer l'utilisateur
+    await prisma.user.delete({
+      where: { id }
     });
 
     return NextResponse.json({
-      message: 'Utilisateur supprimé avec succès',
+      success: true,
+      message: 'Utilisateur supprimé avec succès'
     });
+
   } catch (error) {
     console.error('Erreur lors de la suppression de l\'utilisateur:', error);
     return NextResponse.json(
-      { error: 'Erreur interne du serveur' },
+      { error: 'Erreur lors de la suppression de l\'utilisateur' },
       { status: 500 }
     );
   }

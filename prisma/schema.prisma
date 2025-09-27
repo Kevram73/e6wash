@@ -36,6 +36,7 @@ model User {
   // Relations
   tenant        Tenant?   @relation(fields: [tenantId], references: [id])
   agency        Agency?   @relation("UserAgency", fields: [agencyId], references: [id])
+  customer      Customer? @relation("UserCustomer")
   
   // Relations many-to-many avec les agences
   agencies      AgencyUser[]
@@ -46,6 +47,9 @@ model User {
   
   // Paiements
   payments      Payment[]
+  
+  // Demandes de collecte assignées (si collecteur)
+  assignedCollections CollectionRequest[] @relation("CollectorAssignments")
   
   // Employés
   employee      Employee?
@@ -111,6 +115,7 @@ model Tenant {
   tasks       Task[]
   notifications InternalNotification[]
   loyaltySettings LoyaltySettings[]
+  collectionRequests CollectionRequest[]
 
   @@map("tenants")
 }
@@ -204,7 +209,9 @@ model Customer {
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
   agency      Agency   @relation(fields: [agencyId], references: [id])
   country     Country? @relation(fields: [countryId], references: [id])
+  user        User?    @relation("UserCustomer")
   orders      Order[]
+  collectionRequests CollectionRequest[]
 
   @@map("customers")
 }
@@ -276,6 +283,7 @@ model Order {
   updatedBy       User?         @relation("OrderUpdater", fields: [updatedById], references: [id])
   items           OrderItem[]
   payments        Payment[]
+  collectionRequest CollectionRequest? @relation("CollectionOrder")
 
   @@map("orders")
 }
@@ -820,4 +828,63 @@ enum NotificationLevel {
   SUCCESS
   WARNING
   ERROR
+}
+
+// ===== SYSTÈME DE COLLECTE =====
+model CollectionRequest {
+  id                String   @id @default(cuid())
+  tenantId          String
+  customerId        String
+  collectorId       String?
+  collectionAddress String
+  collectionDate    DateTime
+  collectionTime    String   // HH:MM format
+  collectionNotes   String?
+  status            CollectionStatus @default(PENDING)
+  promoCode         String?
+  promoDiscount     Decimal  @default(0)
+  estimatedItems    Int
+  actualItems       Int?
+  totalWeight       Decimal?
+  totalAmount       Decimal?
+  items             Json?    // Articles estimés
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  tenant            Tenant   @relation(fields: [tenantId], references: [id])
+  customer          Customer @relation(fields: [customerId], references: [id])
+  collector         User?    @relation("CollectorAssignments", fields: [collectorId], references: [id])
+  itemsDetails      CollectionRequestItem[]
+  order             Order?   @relation("CollectionOrder")
+
+  @@map("collection_requests")
+}
+
+model CollectionRequestItem {
+  id                  String   @id @default(cuid())
+  collectionRequestId String
+  name                String
+  category            String
+  estimatedWeight     Decimal?
+  actualWeight        Decimal?
+  description         String?
+  order               Int
+  createdAt           DateTime @default(now())
+
+  // Relations
+  collectionRequest   CollectionRequest @relation(fields: [collectionRequestId], references: [id], onDelete: Cascade)
+
+  @@map("collection_request_items")
+}
+
+enum CollectionStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  COLLECTED
+  PROCESSING
+  READY_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
 }

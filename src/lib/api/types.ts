@@ -1,5 +1,11 @@
 // Types pour les APIs E6Wash
 
+// Import des types de dépôt
+export * from '../types/deposit';
+
+// Import des types de gestion des utilisateurs
+export * from '../types/user-management';
+
 export interface ApiResponse<T> {
   success: boolean;
   data?: T;

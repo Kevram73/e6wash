@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { signIn, getSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import UpworkCard from '@/components/ui/UpworkCard';
 import UpworkButton from '@/components/ui/UpworkButton';
 import UpworkInput from '@/components/ui/UpworkInput';
@@ -180,6 +181,15 @@ const LoginPage: React.FC = () => {
                   'Se connecter'
                 )}
               </UpworkButton>
+
+              <div className="text-center mt-6">
+                <p className="text-[#525252]">
+                  Pas encore de compte ?{' '}
+                  <Link href="/register" className="text-[#14a800] hover:underline font-medium">
+                    Créer un compte
+                  </Link>
+                </p>
+              </div>
             </form>
           </UpworkCard>
         </div>
